@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+    <key>CFBundleExecutable</key><string>MacTop</string>
+    <key>CFBundleIdentifier</key><string>local.mactop.MacTop</string>
+    <key>CFBundleName</key><string>MacTop</string>
+    <key>CFBundleDisplayName</key><string>MacTop</string>
+    <key>CFBundleIconFile</key><string>MacTop.icns</string>
+    <key>CFBundlePackageType</key><string>APPL</string>
+    <key>CFBundleShortVersionString</key><string>0.1.8</string>
+    <key>CFBundleVersion</key><string>9</string>
+    <key>LSMinimumSystemVersion</key><string>26.4</string>
+    <key>LSUIElement</key><true/>
+    <key>NSHighResolutionCapable</key><true/>
+    <key>NSAccessibilityUsageDescription</key><string>MacTop utiliza Accesibilidad para devolver tus ventanas abiertas al escritorio guardado.</string>
+</dict></plist>
