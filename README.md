@@ -8,6 +8,12 @@
 
 <p align="center">Free · Open source · macOS 26.4 or later</p>
 
+<p align="center">
+  <strong><a href="#installation">Install MacTop</a></strong>
+  ·
+  <strong><a href="https://ko-fi.com/zereslab">☕ Support MacTop on Ko-fi</a></strong>
+</p>
+
 Unplug your home monitor and macOS may move its desktops to your MacBook. Plug it back in and the monitor may show a single desktop. **MacTop remembers how you work on each display.** It returns the original desktops it can identify, restores their order, and repositions open windows without closing or relaunching your apps.
 
 | When you use… | MacTop applies… |
