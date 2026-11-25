@@ -9,7 +9,7 @@
 <p align="center">Free · Open source · macOS 26.4 or later</p>
 
 <p align="center">
-  <strong><a href="#installation">Install MacTop</a></strong>
+  <strong><a href="#installation">Download MacTop</a></strong>
   ·
   <strong><a href="https://ko-fi.com/zereslab">☕ Support MacTop on Ko-fi</a></strong>
 </p>
@@ -24,7 +24,15 @@ Unplug your home monitor and macOS may move its desktops to your MacBook. Plug i
 
 ## Installation
 
+**[Download MacTop 0.1.9 Beta 1](https://github.com/CarlosCaceres86/MacTop/releases/download/v0.1.9-beta.1/MacTop-0.1.9-universal.zip)** for Apple silicon and Intel Macs.
+
 You need a MacBook running **macOS 26.4 or later** and, if you use an external display, connect it in extended mode. In **System Settings → Desktop & Dock → Mission Control**, turn on **Displays have separate Spaces**. MacTop supports one external monitor at a time and restores numbered Mission Control desktops. Restoring full-screen and Split View Spaces is outside the scope of this beta.
+
+1. Unzip the download and move `MacTop.app` to **Applications**.
+2. Open MacTop from **Applications**.
+3. MacTop appears in the menu bar. Grant **Accessibility** permission when prompted so it can move windows and use Mission Control.
+
+### Build from source
 
 Build the app from source with the Xcode tools and Swift 6.
 
@@ -34,7 +42,7 @@ cd MacTop
 ./scripts/build-app.sh
 ```
 
-Open `dist/MacTop.app` or copy it to Applications. The local build includes Apple Silicon and Intel and uses ad hoc signing. Once opened, MacTop appears in the menu bar. macOS will ask for **Accessibility** permission so it can move windows and use Mission Control.
+Open `dist/MacTop.app` or copy it to **Applications**. The local build includes both architectures and uses ad hoc signing.
 
 ## Getting started
 

@@ -2,13 +2,13 @@
 
 The [MVP plan](plan.md) defines the scope. The first 0.1.0 test on the MacBook found a restoration failure on reconnect.
 
-### Preparing to publish the code
+### Release packaging
 
 MacTop's code is MIT licensed. The bundle includes that license and the four third-party notices. Before signing, the script removes the debug map containing build paths from the Swift executable.
 
-Before making the repository public, remove or replace the ZIP attached to `v0.1.8-beta.1`. The executable in that ZIP retains the local build path. The code and ZIPs are reviewed separately.
+The original `v0.1.8-beta.1` ZIP retains local build paths. Starting with 0.1.9, the Swift executable is stripped before signing.
 
-To publish a download, build from a clean checkout with a Developer ID Application certificate and a notarization profile configured in the keychain. Use the actual certificate and profile names in these commands.
+For public downloads, build from a clean checkout with a Developer ID Application certificate and submit the app for notarization. Use the actual certificate and keychain profile names in these commands.
 
 ```sh
 SIGN_IDENTITY='Developer ID Application: Holder Name (TEAMID)' ./scripts/build-app.sh
@@ -38,7 +38,7 @@ With 0.1.1 the user reported that restoration appeared to work. With 0.1.2 they 
 - The shared profile remains in `macbook.json`. Each external monitor has its layout and desktop record in two files with a suffix derived from its identifier. Restoration still checks the monitor identifier and the record's capture date.
 - If there is not yet a per-monitor file, MacTop reads the old one only when the saved identifier matches. Identities from the old record apply only to that capture. Saving a monitor's layout writes to its files and retains the legacy files so they remain available in 0.1.8.
 - 173 tests passed. They cover home → MacBook → office → MacBook → home, reading legacy data, isolated saving for the office, and the open menu with a new monitor. On the Mac Studio, macOS returned an empty name. The menu test confirms that the short identifier is shown in that case. Physical switching between both monitors on the MacBook remains to be verified.
-- The local signature, both architectures, macOS 26.4 minimum, and helper read from the [test ZIP](../dist/MacTop-0.1.9-universal.zip) were verified. SHA-256 `355cc7fdcc1b45a2ec6bcef5fa3864566833f260fb6991ce9229bd22539e147d`.
+- The [public beta release](https://github.com/CarlosCaceres86/MacTop/releases/tag/v0.1.9-beta.1) includes the universal ZIP and its SHA-256 checksum.
 
 ### Automatic reconnection in 0.1.8 (9)
 
