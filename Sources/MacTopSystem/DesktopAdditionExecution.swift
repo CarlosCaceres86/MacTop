@@ -32,7 +32,7 @@ enum DesktopAdditionExecution {
         if attempt + 1 < attempts { await pause() }
       }
       throw pressFailure ?? SystemFailure.partial(
-        "“+” was clicked, but a single new desktop on the external monitor could not be verified. The click will not be repeated.")
+        String(localized: "“+” was clicked, but a single new desktop on the external monitor could not be verified. The click will not be repeated."))
     } catch {
       if opened { try? await close() }
       throw error
@@ -41,7 +41,7 @@ enum DesktopAdditionExecution {
 
   private static func unchanged(_ expected: DesktopSnapshot, current: DesktopSnapshot, displayID: String) throws {
     guard try !OrdinaryDesktopAddition.isVerified(before: expected, after: current, displayID: displayID) else {
-      throw SystemFailure.changed("The desktops changed before “+” was clicked. Recalculate the restoration.")
+      throw SystemFailure.changed(String(localized: "The desktops changed before “+” was clicked. Recalculate the restoration."))
     }
   }
 }

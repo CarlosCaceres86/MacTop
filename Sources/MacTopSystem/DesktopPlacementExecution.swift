@@ -32,7 +32,7 @@ enum DesktopPlacementExecution {
           request, reference: reference, current: current, snapshot: snapshot, open: open,
           activate: activate, resumeAfterActivation: resumeAfterActivation, pause: pause, attempts: attempts)
         guard current.displays.first(where: { $0.id == request.sourceDisplayID })?.currentSpaceID != request.spaceID else {
-          throw SystemFailure.changed("The desktop became active before the drag; recovery has stopped.")
+          throw SystemFailure.changed(String(localized: "The desktop became active before the drag; recovery has stopped."))
         }
         try Task.checkCancellation()
         var dragFailure: Error?
@@ -53,7 +53,7 @@ enum DesktopPlacementExecution {
           sourceDisplayID: step.targetDisplayID, targetDisplayID: step.targetDisplayID,
           targetIndex: step.targetIndex, slot: step.slot)
       }
-      throw SystemFailure.partial("The desktop reached the display, but not the requested position.")
+      throw SystemFailure.partial(String(localized: "The desktop reached the display, but not the requested position."))
     } catch {
       if opened { try? await close() }
       throw error
@@ -62,7 +62,7 @@ enum DesktopPlacementExecution {
 
   static func requireUnchanged(_ expected: DesktopSnapshot, current: DesktopSnapshot, step: OrdinaryDesktopReturnStep) throws {
     guard try !OrdinaryDesktopReturn.isVerified(before: expected, after: current, step: step) else {
-      throw SystemFailure.changed("The desktop order or location changed before the action.")
+      throw SystemFailure.changed(String(localized: "The desktop order or location changed before the action."))
     }
   }
 
@@ -72,7 +72,7 @@ enum DesktopPlacementExecution {
       source.spaces.allSatisfy({ $0.kind == .ordinary }), target.spaces.allSatisfy({ $0.kind == .ordinary }),
       let active = source.currentSpaceID, source.spaces.contains(where: { $0.id == active }),
       source.spaces.count > 1 else {
-      throw SystemFailure.unavailable("Moving requires identified ordinary desktops, a known active desktop, and an existing sibling on the source display.")
+      throw SystemFailure.unavailable(String(localized: "Moving requires identified ordinary desktops, a known active desktop, and an existing sibling on the source display."))
     }
     return source
   }
@@ -87,7 +87,7 @@ enum DesktopPlacementExecution {
     let source = try sourceDisplay(step, in: current)
     guard source.currentSpaceID == step.spaceID else { return current }
     guard let sibling = source.spaces.first(where: { $0.id != step.spaceID }) else {
-      throw SystemFailure.unavailable("The last desktop on a display cannot be moved.")
+      throw SystemFailure.unavailable(String(localized: "The last desktop on a display cannot be moved."))
     }
     try Task.checkCancellation()
     var switchFailure: Error?
@@ -109,7 +109,7 @@ enum DesktopPlacementExecution {
       if ProcessInfo.processInfo.systemUptime >= deadline { break }
       if attempt + 1 < attempts { await pause() }
     }
-    throw switchFailure ?? SystemFailure.partial("Could not verify activation of the sibling desktop. No desktop was dragged.")
+    throw switchFailure ?? SystemFailure.partial(String(localized: "Could not verify activation of the sibling desktop. No desktop was dragged."))
   }
 
   private static func observe(
@@ -136,6 +136,6 @@ enum DesktopPlacementExecution {
       if ProcessInfo.processInfo.systemUptime >= deadline { break }
       if attempt + 1 < attempts { await pause() }
     }
-    throw failure ?? SystemFailure.partial("Could not verify the desktop move. The drag will not be repeated.")
+    throw failure ?? SystemFailure.partial(String(localized: "Could not verify the desktop move. The drag will not be repeated."))
   }
 }

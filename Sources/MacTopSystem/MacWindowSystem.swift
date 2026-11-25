@@ -80,7 +80,7 @@ public final class MacWindowSystem {
       if before == after && displays == finalDisplays {
         let issues = displays.flatMap { display in
           display.spaces.contains(where: { $0.kind == .unknown })
-            ? ["Display \(display.id) has a Space of an unverified type."] : []
+            ? [String(localized: "Display \(display.id) has a Space of an unverified type.")] : []
         }
         return DesktopSnapshot(
           displays: displays, windows: observed.windows,
@@ -89,11 +89,11 @@ public final class MacWindowSystem {
       }
     }
     throw SystemFailure.changed(
-      "Displays or desktops are changing. Try again when they are stable.")
+      String(localized: "Displays or desktops are changing. Try again when they are stable."))
   }
 
   public func move(_ move: WindowMove, expectedTopology: DesktopSnapshot) async throws {
-    guard !moving else { throw SystemFailure.unavailable("A move is already in progress.") }
+    guard !moving else { throw SystemFailure.unavailable(String(localized: "A move is already in progress.")) }
     moving = true
     defer { moving = false }
     guard let helperURL else { throw missingHelper() }
@@ -124,7 +124,7 @@ public final class MacWindowSystem {
         try await self.dragOrdinaryDesktop(request, reference: reference, missionControl: missionControl, observe: self.displaySnapshot)
       },
       begin: {
-        guard !self.moving else { throw SystemFailure.unavailable("A restoration is already in progress.") }
+        guard !self.moving else { throw SystemFailure.unavailable(String(localized: "A restoration is already in progress.")) }
         self.moving = true
       }, end: { self.moving = false })
   }
@@ -134,7 +134,7 @@ public final class MacWindowSystem {
   }
 
   public func addOrdinaryDesktop(displayID: String, expected: DesktopSnapshot, includeWindows: Bool) async throws -> DesktopSnapshot {
-    guard !moving else { throw SystemFailure.unavailable("A restoration is already in progress.") }
+    guard !moving else { throw SystemFailure.unavailable(String(localized: "A restoration is already in progress.")) }
     moving = true
     defer { moving = false }
     let missionControl = MissionControlAccessibility()
@@ -150,7 +150,7 @@ public final class MacWindowSystem {
   }
 
   public func placeOrdinaryDesktop(_ step: OrdinaryDesktopReturnStep, expected: DesktopSnapshot, includeWindows: Bool) async throws -> DesktopSnapshot {
-    guard !moving else { throw SystemFailure.unavailable("A restoration is already in progress.") }
+    guard !moving else { throw SystemFailure.unavailable(String(localized: "A restoration is already in progress.")) }
     moving = true
     defer { moving = false }
     let missionControl = MissionControlAccessibility()
@@ -175,7 +175,7 @@ public final class MacWindowSystem {
       guard let active = reference.displays.first(where: { $0.id == request.sourceDisplayID })?.currentSpaceID,
         active != request.spaceID,
         current.displays.first(where: { $0.id == request.sourceDisplayID })?.currentSpaceID == active else {
-        throw SystemFailure.changed("The active desktop changed before the thumbnail was grabbed.")
+        throw SystemFailure.changed(String(localized: "The active desktop changed before the thumbnail was grabbed."))
       }
     }
   }
@@ -187,7 +187,7 @@ public final class MacWindowSystem {
     let reply = try await HelperProcess.run(url: helperURL, arguments: arguments)
     guard !reply.timedOut, reply.status == 0 else {
       throw SystemFailure.unavailable(
-        "Could not read Spaces on this version of macOS. The component failed or timed out."
+        String(localized: "Could not read Spaces on this version of macOS. The component failed or timed out.")
       )
     }
     return try JSONDecoder().decode(T.self, from: reply.data)
@@ -196,21 +196,21 @@ public final class MacWindowSystem {
   private func managedDisplays() async throws -> [ManagedDisplay] { try await read(["spaces"]) }
 
   private func missingHelper() -> SystemFailure {
-    .unavailable("The spacectl component is missing. Run the app built with scripts/build-app.sh.")
+    .unavailable(String(localized: "The spacectl component is missing. Run the app built with scripts/build-app.sh."))
   }
 
   private func physicalDisplays(managed: [ManagedDisplay]) throws -> [DisplaySnapshot] {
     var count: UInt32 = 0
     guard CGGetActiveDisplayList(0, nil, &count) == .success, count > 0 else {
-      throw SystemFailure.unavailable("Could not read the active displays.")
+      throw SystemFailure.unavailable(String(localized: "Could not read the active displays."))
     }
     var ids = [CGDirectDisplayID](repeating: 0, count: Int(count))
     guard CGGetActiveDisplayList(count, &ids, &count) == .success else {
-      throw SystemFailure.unavailable("The list of active displays changed.")
+      throw SystemFailure.unavailable(String(localized: "The list of active displays changed."))
     }
     if count > 1 && !NSScreen.screensHaveSeparateSpaces {
       throw SystemFailure.unavailable(
-        "MacTop needs “Displays have separate Spaces” to identify the desktops on each display."
+        String(localized: "MacTop needs “Displays have separate Spaces” to identify the desktops on each display.")
       )
     }
     let screens = NSScreen.screens
@@ -219,7 +219,7 @@ public final class MacWindowSystem {
         let uuid = CGDisplayCreateUUIDFromDisplayID(id)?.takeRetainedValue()
       else {
         throw SystemFailure.unavailable(
-          "The mirroring configuration or a display identity is not verified.")
+          String(localized: "The mirroring configuration or a display identity is not verified."))
       }
       let identifier = CFUUIDCreateString(nil, uuid)! as String
       let matches = managed.filter {
@@ -228,7 +228,7 @@ public final class MacWindowSystem {
       }
       guard matches.count == 1 else {
         throw SystemFailure.changed(
-          "Cannot associate each list of Spaces with a physical display.")
+          String(localized: "Cannot associate each list of Spaces with a physical display."))
       }
       let spaces = matches[0].spaces.map { space in
         SpaceSnapshot(
@@ -255,14 +255,14 @@ public final class MacWindowSystem {
     throws
   {
     guard current.hasAccessibilityPermission else {
-      throw SystemFailure.unavailable("Grant MacTop Accessibility permission before restoring windows.")
+      throw SystemFailure.unavailable(String(localized: "Grant MacTop Accessibility permission before restoring windows."))
     }
     guard sameTopology(current, expected),
       let display = current.displays.first(where: { $0.id == move.displayID }),
       display.spaces.contains(where: { $0.id == move.spaceID && $0.kind == .ordinary })
     else {
       throw SystemFailure.changed(
-        "The destination display or desktop changed. The restoration must be recalculated.")
+        String(localized: "The destination display or desktop changed. The restoration must be recalculated."))
     }
     let candidates = current.windows.filter { $0.identity == move.identity }
     guard candidates.count == 1, let window = candidates.first, window.verificationIssue == nil,
@@ -275,7 +275,7 @@ public final class MacWindowSystem {
       app.bundleIdentifier == move.identity.bundleIdentifier
     else {
       throw SystemFailure.changed(
-        "The window identity or mode is no longer verified. It was not moved.")
+        String(localized: "The window identity or mode is no longer verified. It was not moved."))
     }
   }
 }

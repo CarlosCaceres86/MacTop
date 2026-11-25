@@ -24,6 +24,15 @@ public struct WindowFrame: Codable, Equatable, Sendable {
 
 public enum SpaceKind: String, Codable, Sendable {
     case ordinary, fullScreen, splitView, unknown
+
+    var displayName: String {
+        switch self {
+        case .ordinary: return String(localized: "ordinary")
+        case .fullScreen: return String(localized: "full screen")
+        case .splitView: return String(localized: "Split View")
+        case .unknown: return String(localized: "unknown")
+        }
+    }
 }
 
 public struct SpaceSnapshot: Codable, Equatable, Sendable {
@@ -134,17 +143,17 @@ public struct DesktopSnapshot: Codable, Equatable, Sendable {
 
     func validate() throws {
         guard hasAccessibilityPermission else { throw MacTopCoreError.missingPermission }
-        guard isComplete else { throw MacTopCoreError.invalidSnapshot("The inventory is incomplete.") }
-        guard windowInventoryOmitted != true else { throw MacTopCoreError.invalidSnapshot("The window inventory has not been read.") }
+        guard isComplete else { throw MacTopCoreError.invalidSnapshot(String(localized: "The inventory is incomplete.")) }
+        guard windowInventoryOmitted != true else { throw MacTopCoreError.invalidSnapshot(String(localized: "The window inventory has not been read.")) }
         _ = try topology()
         guard displays.allSatisfy({ $0.frame.isValid && !$0.spaces.isEmpty && !$0.spaces.contains(where: { $0.id == 0 || $0.kind == .unknown }) }) else {
-            throw MacTopCoreError.invalidSnapshot("Could not verify the desktop sequence on each display.")
+            throw MacTopCoreError.invalidSnapshot(String(localized: "Could not verify the desktop sequence on each display."))
         }
         let spaceIDs = displays.flatMap { $0.spaces.map(\.id) }
         guard Set(spaceIDs).count == spaceIDs.count,
               Set(windows.map(\.identity)).count == windows.count,
               Set(windows.map { $0.identity.windowID }).count == windows.count else {
-            throw MacTopCoreError.invalidSnapshot("The inventory contains duplicate identities.")
+            throw MacTopCoreError.invalidSnapshot(String(localized: "The inventory contains duplicate identities."))
         }
     }
 
@@ -165,10 +174,10 @@ public enum MacTopCoreError: Error, LocalizedError {
 
     public var errorDescription: String? {
         switch self {
-        case .unsupportedTopology: return "The built-in display and, optionally, one identified external monitor are required."
-        case .missingPermission: return "Accessibility permission is missing."
+        case .unsupportedTopology: return String(localized: "The built-in display and, optionally, one identified external monitor are required.")
+        case .missingPermission: return String(localized: "Accessibility permission is missing.")
         case let .invalidSnapshot(message), let .invalidProfile(message): return message
-        case let .externalMonitorConflict(id): return "The external profile belongs to another monitor (\(id)); it was not replaced."
+        case let .externalMonitorConflict(id): return String(localized: "The external profile belongs to another monitor (\(id)); it was not replaced.")
         }
     }
 }

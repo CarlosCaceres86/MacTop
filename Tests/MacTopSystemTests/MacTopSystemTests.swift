@@ -275,7 +275,7 @@ final class MacTopSystemTests: XCTestCase {
           reads += 1
           return initial
         },
-        validate: { _, _ in if reads > 1 { throw SystemFailure.changed("Monitor desconectado") } },
+        validate: { _, _ in if reads > 1 { throw SystemFailure.changed("Monitor disconnected") } },
         moveSpace: {
           events.append("move")
           return HelperReply(data: Data(), status: 1, timedOut: false)

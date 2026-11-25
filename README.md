@@ -24,13 +24,15 @@ Unplug your home monitor and macOS may move its desktops to your MacBook. Plug i
 
 ## Installation
 
-**[Download MacTop 0.1.9 Beta 1](https://github.com/CarlosCaceres86/MacTop/releases/download/v0.1.9-beta.1/MacTop-0.1.9-universal.zip)** for Apple silicon and Intel Macs.
+**[Download MacTop 0.1.10 Beta 1](https://github.com/CarlosCaceres86/MacTop/releases/download/v0.1.10-beta.1/MacTop-0.1.10-universal.zip)** for Apple silicon and Intel Macs.
 
 You need a MacBook running **macOS 26.4 or later** and, if you use an external display, connect it in extended mode. In **System Settings → Desktop & Dock → Mission Control**, turn on **Displays have separate Spaces**. MacTop supports one external monitor at a time and restores numbered Mission Control desktops. Restoring full-screen and Split View Spaces is outside the scope of this beta.
 
 1. Unzip the download and move `MacTop.app` to **Applications**.
 2. Open MacTop from **Applications**.
 3. MacTop appears in the menu bar. Grant **Accessibility** permission when prompted so it can move windows and use Mission Control.
+
+MacTop supports English and Spanish. It uses the language macOS selects for the app, with English as the fallback.
 
 ### Build from source
 

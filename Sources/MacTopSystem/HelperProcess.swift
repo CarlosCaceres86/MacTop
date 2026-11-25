@@ -31,7 +31,7 @@ enum HelperProcess {
     defer { try? FileManager.default.removeItem(at: directory) }
     let output = directory.appendingPathComponent("output")
     guard FileManager.default.createFile(atPath: output.path, contents: nil) else {
-      throw SystemFailure.unavailable("Could not prepare to read the Spaces component.")
+      throw SystemFailure.unavailable(String(localized: "Could not prepare to read the Spaces component."))
     }
     let handle = try FileHandle(forWritingTo: output)
     defer { try? handle.close() }

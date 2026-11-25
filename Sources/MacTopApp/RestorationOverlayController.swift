@@ -60,7 +60,7 @@ final class RestorationOverlayPanel: NSPanel {
         becomesKeyOnlyIfNeeded = true
         isReleasedWhenClosed = false
         animationBehavior = .none
-        title = "Restoring layout · MacTop"
+        title = String(localized: "Restoring layout · MacTop")
         guard showsHUD else { return }
 
         let root = NSView(frame: NSRect(origin: .zero, size: screen.frame.size))
@@ -80,7 +80,7 @@ final class RestorationOverlayPanel: NSPanel {
         spinner.controlSize = .regular
         spinner.appearance = NSAppearance(named: .darkAqua)
         spinner.startAnimation(nil)
-        spinner.setAccessibilityLabel("Restoration in progress")
+        spinner.setAccessibilityLabel(String(localized: "Restoration in progress"))
         phaseLabel.font = .systemFont(ofSize: 14, weight: .semibold)
         phaseLabel.textColor = .white
         profileLabel.font = .systemFont(ofSize: 12)
@@ -107,9 +107,9 @@ final class RestorationOverlayPanel: NSPanel {
 
     func update(phase: LayoutCoordinator.RestorationPhase, profileName: String) {
         switch phase {
-        case .recoveringDesktops: phaseLabel.stringValue = "Recovering desktops"
-        case .placingWindows: phaseLabel.stringValue = "Placing windows"
-        case .verifying: phaseLabel.stringValue = "Verifying layout"
+        case .recoveringDesktops: phaseLabel.stringValue = String(localized: "Recovering desktops")
+        case .placingWindows: phaseLabel.stringValue = String(localized: "Placing windows")
+        case .verifying: phaseLabel.stringValue = String(localized: "Verifying layout")
         }
         profileLabel.stringValue = profileName
     }

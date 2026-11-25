@@ -6,14 +6,14 @@ public enum PendingReason: String, Codable, Sendable {
 
     public var message: String {
         switch self {
-        case .unverifiedWindow: return "The window identity or access has not been verified."
-        case .nonExclusiveMembership: return "The window does not belong exclusively to one desktop."
-        case .unsupportedSpaceKind: return "Full screen or Split View requires physical validation."
-        case .geometryUnverified: return "The physical position does not match exactly one display in the inventory."
-        case .destinationMissing: return "The destination display or desktop is missing."
-        case .applicationClosed: return "The application is closed or has no available windows."
-        case .ambiguousWindow: return "Multiple windows match; none was selected."
-        case .windowUnavailable: return "The saved window is no longer available in this application instance."
+        case .unverifiedWindow: return String(localized: "The window identity or access has not been verified.")
+        case .nonExclusiveMembership: return String(localized: "The window does not belong exclusively to one desktop.")
+        case .unsupportedSpaceKind: return String(localized: "Full screen or Split View requires physical validation.")
+        case .geometryUnverified: return String(localized: "The physical position does not match exactly one display in the inventory.")
+        case .destinationMissing: return String(localized: "The destination display or desktop is missing.")
+        case .applicationClosed: return String(localized: "The application is closed or has no available windows.")
+        case .ambiguousWindow: return String(localized: "Multiple windows match; none was selected.")
+        case .windowUnavailable: return String(localized: "The saved window is no longer available in this application instance.")
         }
     }
 }
@@ -65,7 +65,7 @@ public enum RestorationPlanner {
             try profile.validate()
             try snapshot.validate()
             guard try snapshot.topology() == profile.topology else {
-                return RestorationPlan(moves: [], pending: [], alreadyCorrect: 0, issues: ["The display configuration does not match the profile."])
+                return RestorationPlan(moves: [], pending: [], alreadyCorrect: 0, issues: [String(localized: "The display configuration does not match the profile.")])
             }
         } catch {
             return RestorationPlan(moves: [], pending: [], alreadyCorrect: 0, issues: [error.localizedDescription] + snapshot.issues)
@@ -74,12 +74,12 @@ public enum RestorationPlanner {
         var issues = snapshot.issues
         for savedDisplay in profile.displays {
             guard let current = snapshot.display(for: savedDisplay.role) else {
-                issues.append("A saved display is missing.")
+                issues.append(String(localized: "A saved display is missing."))
                 continue
             }
             for (index, kind) in savedDisplay.spaces.enumerated() {
                 if !current.spaces.indices.contains(index) || current.spaces[index].kind != kind {
-                    issues.append("Desktop \(index + 1) of type \(kind.rawValue) is missing on \(current.id).")
+                    issues.append(String(localized: "Desktop \(index + 1) of type \(kind.displayName) is missing on \(current.id)."))
                 }
             }
         }

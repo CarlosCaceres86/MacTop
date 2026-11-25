@@ -36,7 +36,7 @@ extension MacWindowSystem {
         let accessible = hasPermission ? accessibleWindows(pid: pid) : nil
         let applicationIssue =
           app.bundleIdentifier == nil || app.launchDate == nil
-          ? "Could not verify the application instance." : nil
+          ? String(localized: "Could not verify the application instance.") : nil
         let process = ProcessIdentity(pid: pid, launchDate: app.launchDate ?? .distantPast)
         let bundleIdentifier = app.bundleIdentifier ?? ""
         let windowIDs = Set(raw.filter { $0.pid == pid }.map(\.id))
@@ -65,7 +65,7 @@ extension MacWindowSystem {
                 process: process, windowID: window.id, bundleIdentifier: bundleIdentifier),
               title: "", frame: WindowFrame(.zero), spaceIDs: [],
               verificationIssue: applicationIssue
-                ?? "WindowServer could not verify this window’s desktop membership.")
+                ?? String(localized: "WindowServer could not verify this window’s desktop membership."))
           )
         }
       }
@@ -81,17 +81,17 @@ extension MacWindowSystem {
       let windows = accessibleWindows(pid: move.identity.process.pid)
     else {
       throw SystemFailure.partial(
-        "Could not verify the same window for placement on the destination display.")
+        String(localized: "Could not verify the same window for placement on the destination display."))
     }
     let matches = windows.filter { $0.id == move.identity.windowID && $0.isStandard == true }
     guard matches.count == 1 else {
       throw SystemFailure.partial(
-        "The AX identity is not unique; coordinates were not changed.")
+        String(localized: "The AX identity is not unique; coordinates were not changed."))
     }
     let element = matches[0].element
     let target = destination.frame.rect.insetBy(dx: 24, dy: 48)
     guard target.width > 0, target.height > 0 else {
-      throw SystemFailure.partial("The destination geometry is invalid.")
+      throw SystemFailure.partial(String(localized: "The destination geometry is invalid."))
     }
     let width = min(window.frame.width, target.width)
     let height = min(window.frame.height, target.height)
@@ -101,7 +101,7 @@ extension MacWindowSystem {
         AXUIElementSetAttributeValue(element, kAXSizeAttribute as CFString, value) == .success
       else {
         throw SystemFailure.partial(
-          "The window reached the desktop, but the application does not allow resizing it to the display.")
+          String(localized: "The window reached the desktop, but the application does not allow resizing it to the display."))
       }
     }
     var point = CGPoint(x: target.minX, y: target.minY)
@@ -109,7 +109,7 @@ extension MacWindowSystem {
       AXUIElementSetAttributeValue(element, kAXPositionAttribute as CFString, value) == .success
     else {
       throw SystemFailure.partial(
-        "The window reached the desktop, but the application does not allow positioning it physically on the display."
+        String(localized: "The window reached the desktop, but the application does not allow positioning it physically on the display.")
       )
     }
   }
@@ -156,13 +156,13 @@ func inventoryIssue(
   spaceIDs: [UInt64], ordinarySpaceIDs: Set<UInt64>, frame: WindowFrame
 ) -> String? {
   if let applicationIssue { return applicationIssue }
-  guard hasPermission else { return "Accessibility permission is required to verify the inventory." }
-  guard frame.isValid else { return "The window geometry is not verified." }
+  guard hasPermission else { return String(localized: "Accessibility permission is required to verify the inventory.") }
+  guard frame.isValid else { return String(localized: "The window geometry is not verified.") }
   guard matchedAXKinds.count <= 1, matchedAXKinds.first.map({ $0 == true }) ?? true else {
-    return "The AX identity or ordinary window type is not verified."
+    return String(localized: "The AX identity or ordinary window type is not verified.")
   }
   guard spaceIDs.count == 1, let space = spaceIDs.first, ordinarySpaceIDs.contains(space) else {
-    return "The window does not belong exclusively to a verified ordinary desktop."
+    return String(localized: "The window does not belong exclusively to a verified ordinary desktop.")
   }
   return nil
 }

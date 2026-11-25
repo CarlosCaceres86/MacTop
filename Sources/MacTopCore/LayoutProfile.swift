@@ -66,7 +66,7 @@ public struct LayoutProfile: Codable, Equatable, Sendable {
             return SavedWindow(identity: window.identity, title: window.title, destination: destination)
         }
         guard windows.isEmpty || windows.contains(where: { $0.destination != nil }) else {
-            throw MacTopCoreError.invalidSnapshot("No window has a verified destination; the previous profile is preserved.")
+            throw MacTopCoreError.invalidSnapshot(String(localized: "No window has a verified destination; the previous profile is preserved."))
         }
         let result = LayoutProfile(topology: topology, displays: displays, windows: windows)
         try result.validate()
@@ -74,28 +74,28 @@ public struct LayoutProfile: Codable, Equatable, Sendable {
     }
 
     func validate() throws {
-        guard schemaVersion == 1 else { throw MacTopCoreError.invalidProfile("Unsupported profile version.") }
+        guard schemaVersion == 1 else { throw MacTopCoreError.invalidProfile(String(localized: "Unsupported profile version.")) }
         let expectedRoles: [DisplayRole]
         switch topology {
         case .portable: expectedRoles = [.builtIn]
         case let .external(id):
-            guard !id.isEmpty else { throw MacTopCoreError.invalidProfile("The saved monitor has no identity.") }
+            guard !id.isEmpty else { throw MacTopCoreError.invalidProfile(String(localized: "The saved monitor has no identity.")) }
             expectedRoles = [.builtIn, .external(id: id)]
         }
         guard displays.count == expectedRoles.count,
               expectedRoles.allSatisfy({ role in displays.filter { $0.role == role }.count == 1 }),
               displays.allSatisfy({ !$0.spaces.isEmpty && !$0.spaces.contains(.unknown) }),
               Set(windows.map(\.identity)).count == windows.count else {
-            throw MacTopCoreError.invalidProfile("The profile contains inconsistent displays or windows.")
+            throw MacTopCoreError.invalidProfile(String(localized: "The profile contains inconsistent displays or windows."))
         }
         let uuids = displays.flatMap { $0.spaceUUIDs?.compactMap { $0 } ?? [] }
         guard displays.allSatisfy({ $0.spaceUUIDs == nil || $0.spaceUUIDs?.count == $0.spaces.count }),
               Set(uuids).count == uuids.count else {
-            throw MacTopCoreError.invalidProfile("The profile contains inconsistent desktop identities.")
+            throw MacTopCoreError.invalidProfile(String(localized: "The profile contains inconsistent desktop identities."))
         }
         for window in windows {
             guard let destination = window.destination else {
-                guard window.pendingReason != nil else { throw MacTopCoreError.invalidProfile("A window has neither a destination nor a pending reason.") }
+                guard window.pendingReason != nil else { throw MacTopCoreError.invalidProfile(String(localized: "A window has neither a destination nor a pending reason.")) }
                 continue
             }
             guard window.pendingReason == nil,
@@ -105,7 +105,7 @@ public struct LayoutProfile: Codable, Equatable, Sendable {
                   destination.kind == .ordinary,
                   window.identity.process.pid > 0, window.identity.windowID > 0,
                   !window.identity.bundleIdentifier.isEmpty else {
-                throw MacTopCoreError.invalidProfile("A window destination does not match the saved sequence.")
+                throw MacTopCoreError.invalidProfile(String(localized: "A window destination does not match the saved sequence."))
             }
         }
     }

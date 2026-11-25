@@ -23,10 +23,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     let statusMenu = NSMenu()
     private let profileItem = NSMenuItem()
     private let messageItem = NSMenuItem()
-    private lazy var permissionItem = command("Allow Accessibility…", #selector(openAccessibilitySettings), symbol: "accessibility")
-    private lazy var restoreItem = command("Restore Now", #selector(restore), symbol: "arrow.counterclockwise")
-    private lazy var saveItem = command("Save This Layout…", #selector(saveDistribution(_:)), symbol: "square.and.arrow.down")
-    private lazy var automaticItem = command("Automatic Restoration", #selector(toggleAutomatic))
+    private lazy var permissionItem = command(String(localized: "Allow Accessibility…"), #selector(openAccessibilitySettings), symbol: "accessibility")
+    private lazy var restoreItem = command(String(localized: "Restore Now"), #selector(restore), symbol: "arrow.counterclockwise")
+    private lazy var saveItem = command(String(localized: "Save This Layout…"), #selector(saveDistribution(_:)), symbol: "square.and.arrow.down")
+    private lazy var automaticItem = command(String(localized: "Automatic Restoration"), #selector(toggleAutomatic))
     private let optionsMenu = NSMenu()
     private var menuIsOpen = false
     private var coordinator: LayoutCoordinator!
@@ -73,7 +73,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         item.button?.image = MacTopIcon.statusImage()
         if item.button?.image == nil { item.button?.title = "MacTop" }
-        item.button?.toolTip = "MacTop · Window layouts"
+        item.button?.toolTip = String(localized: "MacTop · Window layouts")
         configureMenu()
         item.menu = statusMenu
 
@@ -124,15 +124,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         messageItem.isEnabled = false
         optionsMenu.autoenablesItems = false
         optionsMenu.items = [
-            command("Open Profiles Folder", #selector(openProfiles), symbol: "folder"),
-            .separator(), command("About MacTop…", #selector(about), symbol: "info.circle")
+            command(String(localized: "Open Profiles Folder"), #selector(openProfiles), symbol: "folder"),
+            .separator(), command(String(localized: "About MacTop…"), #selector(about), symbol: "info.circle")
         ]
-        let options = NSMenuItem(title: "More Options", action: nil, keyEquivalent: "")
+        let options = NSMenuItem(title: String(localized: "More Options"), action: nil, keyEquivalent: "")
         options.submenu = optionsMenu
         statusMenu.items = [
-            .sectionHeader(title: "Detected Profile"), profileItem, messageItem, .separator(),
+            .sectionHeader(title: String(localized: "Detected Profile")), profileItem, messageItem, .separator(),
             permissionItem, restoreItem, saveItem, .separator(), automaticItem, .separator(),
-            options, .separator(), command("Quit MacTop", #selector(quit), key: "q")
+            options, .separator(), command(String(localized: "Quit MacTop"), #selector(quit), key: "q")
         ]
     }
 
@@ -164,14 +164,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         var message: String? = coordinator.status
         var note: String?
         if needsAccess {
-            message = "Allow Accessibility to save and restore windows."
+            message = String(localized: "Allow Accessibility to save and restore windows.")
         } else if coordinator.lacksExternalProfile, message == LayoutCoordinator.missingExternalProfile {
             message = nil
         } else if let last, !coordinator.lacksExternalProfile {
             if last.summary == coordinator.status && !last.showsInMenu {
                 message = nil
             } else if !busy && last.showsInMenu {
-                note = last.summary == coordinator.status ? last.details.first : "Last restoration · \(last.summary)"
+                note = last.summary == coordinator.status ? last.details.first : String(localized: "Last restoration · \(last.summary)")
             }
         }
         if messageItem.title != (message ?? "") || messageItem.subtitle != note {
@@ -183,7 +183,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         permissionItem.isHidden = !needsAccess
         restoreItem.isEnabled = !needsAccess && !busy && !coordinator.lacksExternalProfile
         let topology = coordinator.detectedTopology
-        saveItem.title = coordinator.detectedProfileName.map { "Save Layout for \($0)…" } ?? "Save This Layout…"
+        saveItem.title = coordinator.detectedProfileName.map { String(localized: "Save Layout for \($0)…") }
+            ?? String(localized: "Save This Layout…")
         saveItem.representedObject = topology
         saveItem.isEnabled = !needsAccess && !busy && topology != nil
         automaticItem.isEnabled = !needsAccess || coordinator.automaticEnabled
@@ -217,17 +218,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private var profileName: String {
-        coordinator.detectedProfileName ?? (coordinator.isBusy ? "Checking display setup…" : "Profile not detected")
+        coordinator.detectedProfileName ?? (coordinator.isBusy
+            ? String(localized: "Checking display setup…") : String(localized: "Profile not detected"))
     }
 
     private var screenInfo: String? {
         guard let topology = coordinator.detectedTopology, let count = coordinator.detectedDesktopCount else { return nil }
-        let desktops = "\(count) \(count == 1 ? "desktop" : "desktops")"
+        let desktops = count == 1 ? String(localized: "\(count) desktop") : String(localized: "\(count) desktops")
         if case let .external(displayID) = topology {
-            let state = coordinator.lacksExternalProfile ? "No saved profile" : "2 displays"
-            return "\(state) · \(desktops) · ID \(displayID.suffix(6))"
+            let state = coordinator.lacksExternalProfile ? String(localized: "No saved profile") : String(localized: "2 displays")
+            return String(localized: "\(state) · \(desktops) · ID \(String(displayID.suffix(6)))")
         }
-        return "1 display · \(desktops)"
+        return String(localized: "1 display · \(desktops)")
     }
 
     @objc private func saveDistribution(_ sender: NSMenuItem) {
@@ -235,15 +237,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
               let profileName = coordinator.detectedProfileName,
               !coordinator.isBusy, coordinator.detectedTopology == topology else { return }
         let message = coordinator.lacksExternalProfile
-            ? "This saves the current layout as a new profile for this monitor."
-            : "This saves the current layout and replaces any existing profile for this display setup."
-        let confirmation = makeAlert(title: "Save for \(profileName)", message: message)
-        confirmation.addButton(withTitle: "Save Layout")
-        confirmation.addButton(withTitle: "Cancel").keyEquivalent = "\u{1b}"
+            ? String(localized: "This saves the current layout as a new profile for this monitor.")
+            : String(localized: "This saves the current layout and replaces any existing profile for this display setup.")
+        let confirmation = makeAlert(title: String(localized: "Save for \(profileName)"), message: message)
+        confirmation.addButton(withTitle: String(localized: "Save Layout"))
+        confirmation.addButton(withTitle: String(localized: "Cancel")).keyEquivalent = "\u{1b}"
         NSApplication.shared.activate(ignoringOtherApps: true)
         guard confirmation.runModal() == .alertFirstButtonReturn else { return }
         guard !coordinator.isBusy, coordinator.detectedTopology == topology else {
-            alert(title: "The display setup changed", message: "Reopen the menu and check the detected profile before saving.")
+            alert(title: String(localized: "The display setup changed"),
+                  message: String(localized: "Reopen the menu and check the detected profile before saving."))
             return
         }
         coordinator.saveCurrent(external: topology.isExternal, expectedTopology: topology)
@@ -261,7 +264,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func openAccessibilitySettings() {
         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"),
            NSWorkspace.shared.open(url) { return }
-        alert(title: "Allow Accessibility", message: "In System Settings, go to Privacy & Security → Accessibility and turn on MacTop.")
+        alert(title: String(localized: "Allow Accessibility"),
+              message: String(localized: "In System Settings, go to Privacy & Security → Accessibility and turn on MacTop."))
     }
 
     @objc private func openProfiles() {
@@ -270,13 +274,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         do {
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
             NSWorkspace.shared.open(directory)
-        } catch { alert(title: "Could not open the profiles folder", message: error.localizedDescription) }
+        } catch { alert(title: String(localized: "Could not open the profiles folder"), message: error.localizedDescription) }
     }
 
     @objc private func about() {
         guard !coordinator.isBusy else { return }
-        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "development build"
-        alert(title: "MacTop \(version) · Local beta", message: """
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? String(localized: "development build")
+        alert(title: String(localized: "MacTop \(version) · Local beta"), message: String(localized: """
             Restore your open windows to their saved desktops.
 
             Save a MacBook profile and one profile for each external monitor you use. Try Restore Now before enabling automatic restoration.
@@ -284,7 +288,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             Only saving a layout replaces a profile. Your apps and documents stay open. Profiles are stored locally.
 
             Uses SpacePigeon 2.2.2 and other MIT-licensed components. See Contents/Resources/ThirdParty for notices. The target test system is macOS 26.6.2.
-            """)
+            """))
     }
 
     private func makeAlert(title: String, message: String) -> NSAlert {
@@ -299,7 +303,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard !coordinator.isBusy else { return }
         NSApplication.shared.activate(ignoringOtherApps: true)
         let alert = makeAlert(title: title, message: message)
-        let accept = alert.addButton(withTitle: "OK")
+        let accept = alert.addButton(withTitle: String(localized: "OK"))
         let panel = alert.window
         let escape = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
             guard event.window === panel, event.keyCode == 53 else { return event }

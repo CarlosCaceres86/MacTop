@@ -28,7 +28,7 @@ public struct ProfileStore: Sendable {
         try profile.validate()
         guard profile.topology == topology else {
             if case let .external(id) = profile.topology { throw MacTopCoreError.externalMonitorConflict(id) }
-            throw MacTopCoreError.invalidProfile("The file does not belong to the requested profile.")
+            throw MacTopCoreError.invalidProfile(String(localized: "The file does not belong to the requested profile."))
         }
         return profile
     }

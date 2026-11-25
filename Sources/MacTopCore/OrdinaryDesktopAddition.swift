@@ -15,7 +15,7 @@ public enum OrdinaryDesktopAddition {
               current.spaces.allSatisfy({ $0.kind == .ordinary }),
               current.spaces.count < saved.spaces.count else { return 0 }
         guard saved.spaces.count <= maximumOrdinaryDesktops else {
-            throw MacTopCoreError.invalidProfile("The profile exceeds the limit of 16 ordinary desktops per display; none was created.")
+            throw MacTopCoreError.invalidProfile(String(localized: "The profile exceeds the limit of 16 ordinary desktops per display; none was created."))
         }
         return saved.spaces.count - current.spaces.count
     }
@@ -53,6 +53,6 @@ public enum OrdinaryDesktopAddition {
     }
 
     private static func changed() -> MacTopCoreError {
-        .invalidSnapshot("The desktop sequence changed unexpectedly; no more desktops will be created.")
+        .invalidSnapshot(String(localized: "The desktop sequence changed unexpectedly; no more desktops will be created."))
     }
 }

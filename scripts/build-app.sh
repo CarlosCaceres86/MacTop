@@ -15,6 +15,7 @@ app="dist/MacTop.app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources/ThirdParty"
 cp resources/Info.plist "$app/Contents/Info.plist"
 cp resources/MacTop.icns "$app/Contents/Resources/MacTop.icns"
+cp -R resources/{en,es}.lproj "$app/Contents/Resources/"
 cp LICENSE "$app/Contents/Resources/LICENSE"
 cp "$binary_dir/MacTop" "$app/Contents/MacOS/MacTop"
 # Remove local build paths from the Mach-O debug map before signing.

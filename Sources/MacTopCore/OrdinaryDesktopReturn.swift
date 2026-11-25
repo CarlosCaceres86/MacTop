@@ -23,7 +23,7 @@ public struct ExternalDesktopRegistry: Codable, Equatable, Sendable {
         try profile.validate()
         guard case let .external(id) = profile.topology,
               let display = profile.displays.first(where: { $0.role == .external(id: id) }) else {
-            throw MacTopCoreError.invalidProfile("The registry requires an external profile.")
+            throw MacTopCoreError.invalidProfile(String(localized: "The registry requires an external profile."))
         }
         displayID = id; capturedAt = profile.capturedAt
         slots = display.spaces.indices.map { ExternalDesktopIdentity(stableUUID: display.spaceUUIDs?[$0]) }
@@ -35,7 +35,7 @@ public struct ExternalDesktopRegistry: Codable, Equatable, Sendable {
         let captured = try LayoutProfile.capture(snapshot: snapshot)
         guard captured.topology == profile.topology, captured.displays == profile.displays,
               let display = snapshot.displays.first(where: { $0.id == displayID && !$0.isBuiltIn }) else {
-            throw MacTopCoreError.invalidSnapshot("The snapshot changed before its desktops were registered.")
+            throw MacTopCoreError.invalidSnapshot(String(localized: "The snapshot changed before its desktops were registered."))
         }
         for index in slots.indices {
             slots[index].sessionSpaceID = display.spaces[index].id
@@ -54,18 +54,18 @@ public struct ExternalDesktopRegistry: Codable, Equatable, Sendable {
         try profile.validate()
         guard matches(profile: profile),
               let saved = profile.displays.first(where: { $0.role == .external(id: displayID) }) else {
-            throw MacTopCoreError.invalidProfile("The desktop registry does not match this snapshot and monitor.")
+            throw MacTopCoreError.invalidProfile(String(localized: "The desktop registry does not match this snapshot and monitor."))
         }
         var identities = Set<UUID>()
         for (index, slot) in slots.enumerated() {
             guard slot.stableUUID == saved.spaceUUIDs?[index],
                   (slot.sessionSpaceID == nil) == (slot.sessionID == nil),
                   slot.sessionSpaceID == nil || slot.sessionSpaceID! > 0 else {
-                throw MacTopCoreError.invalidProfile("The registry contains an inconsistent desktop identity.")
+                throw MacTopCoreError.invalidProfile(String(localized: "The registry contains an inconsistent desktop identity."))
             }
             for uuid in Set([slot.stableUUID, slot.createdUUID].compactMap { $0 }) {
                 guard identities.insert(uuid).inserted else {
-                    throw MacTopCoreError.invalidProfile("The registry contains duplicate desktop identities.")
+                    throw MacTopCoreError.invalidProfile(String(localized: "The registry contains duplicate desktop identities."))
                 }
             }
         }
@@ -76,7 +76,7 @@ public struct ExternalDesktopRegistry: Codable, Equatable, Sendable {
         guard slots.indices.contains(slot),
               try OrdinaryDesktopAddition.isVerified(before: before, after: after, displayID: displayID),
               let space = after.displays.first(where: { $0.id == displayID })?.spaces.last else {
-            throw MacTopCoreError.invalidSnapshot("Could not register the created desktop.")
+            throw MacTopCoreError.invalidSnapshot(String(localized: "Could not register the created desktop."))
         }
         let previous = slots[slot]
         let originalUUIDs = [previous.stableUUID, previous.createdUUID].compactMap { $0 }
@@ -86,11 +86,11 @@ public struct ExternalDesktopRegistry: Codable, Equatable, Sendable {
                 previous.sessionSpaceUUID == existing.stableUUID
         }
         guard !alreadyKnown else {
-            throw MacTopCoreError.invalidSnapshot("The destination already has an identified desktop; its identity is preserved.")
+            throw MacTopCoreError.invalidSnapshot(String(localized: "The destination already has an identified desktop; its identity is preserved."))
         }
         let uuids = after.displays.flatMap(\.spaces).compactMap(\.stableUUID)
         if let uuid = space.stableUUID, uuids.filter({ $0 == uuid }).count != 1 {
-            throw MacTopCoreError.invalidSnapshot("The created desktop UUID is duplicated.")
+            throw MacTopCoreError.invalidSnapshot(String(localized: "The created desktop UUID is duplicated."))
         }
         // Keep the original UUID so it wins if a temporarily missing Space reappears.
         slots[slot].createdUUID = space.stableUUID
@@ -127,19 +127,19 @@ public enum OrdinaryDesktopReturn {
         guard saved.spaces.allSatisfy({ $0 == .ordinary }), external.spaces.allSatisfy({ $0.kind == .ordinary }) else { return .ready }
         let resolved = try saved.spaces.indices.map { try resolve(slot: $0, saved: saved, snapshot: snapshot, registry: registry, sessionID: sessionID) }
         let knownIDs = resolved.compactMap { $0?.space.id }
-        guard Set(knownIDs).count == knownIDs.count else { throw changed("Two destinations point to the same desktop.") }
+        guard Set(knownIDs).count == knownIDs.count else { throw changed(String(localized: "Two destinations point to the same desktop.")) }
         for slot in saved.spaces.indices {
             guard let original = resolved[slot] else { continue }
             if original.display.id == external.id, external.spaces.firstIndex(where: { $0.id == original.space.id }) == slot { continue }
             guard original.space.kind == .ordinary,
                   original.display.isBuiltIn || original.display.id == external.id,
                   !original.display.isBuiltIn || original.display.spaces.filter({ $0.kind == .ordinary }).count > 1 else {
-                throw changed("The desktop cannot be returned while retaining an ordinary desktop on the built-in display.")
+                throw changed(String(localized: "The desktop cannot be returned while retaining an ordinary desktop on the built-in display."))
             }
             // Return known Spaces first; missing capacity is filled after their identities are safe.
             if original.display.id == external.id && slot >= external.spaces.count { continue }
             guard !original.display.isBuiltIn || external.spaces.count < OrdinaryDesktopAddition.maximumOrdinaryDesktops else {
-                throw changed("The external monitor already has 16 desktops; another cannot be returned without removing one.")
+                throw changed(String(localized: "The external monitor already has 16 desktops; another cannot be returned without removing one."))
             }
             return .move(.init(spaceID: original.space.id, stableUUID: original.space.stableUUID, sourceDisplayID: original.display.id,
                                targetDisplayID: external.id, targetIndex: min(slot, external.spaces.count), slot: slot))
@@ -148,7 +148,7 @@ public enum OrdinaryDesktopReturn {
             let unknownSlots = saved.spaces.indices.filter { resolved[$0] == nil }
             let available = external.spaces.filter { !knownIDs.contains($0.id) }.count
             guard unknownSlots.indices.contains(available) else { throw changed() }
-            return .create(slot: unknownSlots[available], reason: "No available original desktop has been identified for this destination; the missing desktop will be created.")
+            return .create(slot: unknownSlots[available], reason: String(localized: "No available original desktop has been identified for this destination; the missing desktop will be created."))
         }
         return .ready
     }
@@ -158,7 +158,7 @@ public enum OrdinaryDesktopReturn {
         let observed = Set(snapshot.displays.flatMap(\.spaces).compactMap(\.stableUUID))
         return saved.spaces.indices.compactMap { slot in
             guard let uuid = saved.spaceUUIDs?[slot] ?? registry.slots[slot].stableUUID ?? registry.slots[slot].createdUUID, !observed.contains(uuid) else { return nil }
-            return "The original UUID for desktop \(slot + 1) is missing; the available ordinary destination will be used without deleting its saved identity."
+            return String(localized: "The original UUID for desktop \(slot + 1) is missing; the available ordinary destination will be used without deleting its saved identity.")
         }
     }
 
@@ -204,7 +204,7 @@ public enum OrdinaryDesktopReturn {
         guard registry.matches(profile: profile), try snapshot.topology() == profile.topology,
               let saved = profile.displays.first(where: { $0.role == .external(id: registry.displayID) }),
               let external = snapshot.displays.first(where: { $0.id == registry.displayID && !$0.isBuiltIn }) else {
-            throw changed("The desktop registry does not match this snapshot and monitor.")
+            throw changed(String(localized: "The desktop registry does not match this snapshot and monitor."))
         }
         return (saved, external)
     }
@@ -233,10 +233,10 @@ public enum OrdinaryDesktopReturn {
         let uuids = spaces.compactMap(\.stableUUID)
         guard snapshot.isComplete, snapshot.displays.allSatisfy({ $0.frame.isValid && !$0.spaces.isEmpty }),
               spaces.allSatisfy({ $0.id > 0 && $0.kind != .unknown }), Set(spaces.map(\.id)).count == spaces.count,
-              Set(uuids).count == uuids.count else { throw changed("Could not verify a unique identity for each desktop.") }
+              Set(uuids).count == uuids.count else { throw changed(String(localized: "Could not verify a unique identity for each desktop.")) }
     }
 
-    private static func changed(_ reason: String = "The return changed desktops other than the intended one; recovery has stopped.") -> MacTopCoreError {
+    private static func changed(_ reason: String = String(localized: "The return changed desktops other than the intended one; recovery has stopped.")) -> MacTopCoreError {
         .invalidSnapshot(reason)
     }
 }
