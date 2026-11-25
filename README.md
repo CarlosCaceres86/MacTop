@@ -60,7 +60,9 @@ The [MVP plan](tasks/plan.md) and [implementation notes](tasks/todo.md) document
 
 ## Support MacTop
 
-If MacTop saves you from rearranging your windows, share it with someone who also switches monitors often.
+If MacTop saves you from rearranging your windows, a one-time tip helps me test more monitor setups and keep MacTop working across macOS updates.
+
+[Support MacTop on Ko-fi](https://ko-fi.com/zereslab)
 
 ## License
 
