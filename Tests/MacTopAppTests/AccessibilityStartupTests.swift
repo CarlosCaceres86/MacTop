@@ -16,12 +16,12 @@ final class AccessibilityStartupTests: XCTestCase {
             let menu = delegate.statusMenu
             for _ in 0..<2 {
                 delegate.menuNeedsUpdate(menu)
-                XCTAssertEqual(menu.item(withTitle: "Permitir Accesibilidad…")?.isHidden, false)
-                XCTAssertEqual(menu.item(withTitle: "Restaurar ahora")?.isEnabled, false)
+                XCTAssertEqual(menu.item(withTitle: "Allow Accessibility…")?.isHidden, false)
+                XCTAssertEqual(menu.item(withTitle: "Restore Now")?.isEnabled, false)
             }
             granted = true
             delegate.menuNeedsUpdate(menu)
-            XCTAssertEqual(menu.item(withTitle: "Permitir Accesibilidad…")?.isHidden, true)
+            XCTAssertEqual(menu.item(withTitle: "Allow Accessibility…")?.isHidden, true)
             XCTAssertEqual(prompts, 1)
         }
     }
@@ -34,8 +34,8 @@ final class AccessibilityStartupTests: XCTestCase {
             defer { delegate.applicationWillTerminate(Notification(name: NSApplication.willTerminateNotification)) }
             let menu = delegate.statusMenu
             delegate.menuNeedsUpdate(menu)
-            XCTAssertEqual(menu.item(withTitle: "Permitir Accesibilidad…")?.isHidden, true)
-            XCTAssertNotNil(menu.item(withTitle: "Restaurar ahora"))
+            XCTAssertEqual(menu.item(withTitle: "Allow Accessibility…")?.isHidden, true)
+            XCTAssertNotNil(menu.item(withTitle: "Restore Now"))
         }
     }
 }

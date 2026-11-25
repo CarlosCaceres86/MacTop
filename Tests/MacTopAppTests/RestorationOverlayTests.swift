@@ -5,7 +5,7 @@ import XCTest
 final class RestorationOverlayTests: XCTestCase {
     func testOverlayCoversDisplaysWithoutTakingFocusAndClosesWhenFinished() async throws {
         try await MainActor.run {
-            guard !NSScreen.screens.isEmpty else { throw XCTSkip("No hay una sesión gráfica disponible") }
+            guard !NSScreen.screens.isEmpty else { throw XCTSkip("No graphical session is available") }
             _ = NSApplication.shared
             let frontmost = NSWorkspace.shared.frontmostApplication?.processIdentifier
             let keyWindow = NSApplication.shared.keyWindow
@@ -46,7 +46,7 @@ final class RestorationOverlayTests: XCTestCase {
 
     func testClosingForScreenChangeReplacesEveryPanelOnNextRestoration() async throws {
         try await MainActor.run {
-            guard !NSScreen.screens.isEmpty else { throw XCTSkip("No hay una sesión gráfica disponible") }
+            guard !NSScreen.screens.isEmpty else { throw XCTSkip("No graphical session is available") }
             let overlay = RestorationOverlayController()
             defer { overlay.hide() }
             overlay.update(phase: .placingWindows, profileName: "MacBook")

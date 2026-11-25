@@ -23,7 +23,7 @@ final class LayoutCoordinatorTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(planningPauseCount), rig.pauseCount)
         XCTAssertEqual(rig.fullReadCount, 2)
         XCTAssertTrue(rig.moves.isEmpty)
-        XCTAssertTrue(coordinator.status.hasPrefix("Restauración parcial"))
+        XCTAssertTrue(coordinator.status.hasPrefix("Partial restoration"))
     }
 
     func testAutomaticReconnectReturnsAllOriginalDesktopsDespiteScreenNotificationDuringFirstReturn() async throws {
@@ -58,7 +58,7 @@ final class LayoutCoordinatorTests: XCTestCase {
         XCTAssertTrue(rig.moves.isEmpty)
         XCTAssertEqual(Array(rig.current.displays[1].spaces.prefix(3)).map(\.id), [10, 11, 12])
         XCTAssertTrue(RestorationPlanner.plan(profile: profiles[0], snapshot: rig.current).isComplete)
-        XCTAssertTrue(coordinator.status.hasPrefix("Restaurado"))
+        XCTAssertTrue(coordinator.status.hasPrefix("Restored"))
         XCTAssertEqual(rig.saved, profiles)
     }
 
@@ -101,7 +101,7 @@ final class LayoutCoordinatorTests: XCTestCase {
             XCTAssertTrue(rig.additions.isEmpty, change)
             XCTAssertTrue(rig.moves.isEmpty, change)
             XCTAssertEqual(rig.saved, profiles, change)
-            XCTAssertFalse(coordinator.status.hasPrefix("Restaurado"), change)
+            XCTAssertFalse(coordinator.status.hasPrefix("Restored"), change)
         }
     }
 
@@ -150,10 +150,10 @@ final class LayoutCoordinatorTests: XCTestCase {
                 XCTAssertEqual(rig.moves.first?.spaceID, 12)
                 XCTAssertEqual(rig.moves.first?.displayID, "monitor")
                 XCTAssertTrue(RestorationPlanner.plan(profile: profiles[0], snapshot: rig.current).isComplete)
-                XCTAssertTrue(coordinator.status.hasPrefix("Restaurado"))
+                XCTAssertTrue(coordinator.status.hasPrefix("Restored"))
             } else {
                 XCTAssertFalse(rig.current.windows.contains { $0.identity == missing.identity })
-                XCTAssertTrue(coordinator.status.hasPrefix("Restauración parcial"))
+                XCTAssertTrue(coordinator.status.hasPrefix("Partial restoration"))
             }
         }
     }
@@ -210,7 +210,7 @@ final class LayoutCoordinatorTests: XCTestCase {
         XCTAssertEqual(rig.finishCount, 1)
         XCTAssertTrue(rig.additions.isEmpty)
         XCTAssertEqual(rig.saved, profiles)
-        XCTAssertTrue(coordinator.status.hasPrefix("Restauración parcial"))
+        XCTAssertTrue(coordinator.status.hasPrefix("Partial restoration"))
     }
 
     func testOpenMenuTracksDetectionAndChangesSaveTargetInPlace() async throws {
@@ -226,23 +226,23 @@ final class LayoutCoordinatorTests: XCTestCase {
             delegate.menuDidClose(menu)
             delegate.applicationWillTerminate(Notification(name: NSApplication.willTerminateNotification))
         }
-        let profile = try XCTUnwrap(menu.item(withTitle: "Comprobando configuración…"))
-        let save = try XCTUnwrap(menu.item(withTitle: "Guardar esta distribución…"))
+        let profile = try XCTUnwrap(menu.item(withTitle: "Checking display setup…"))
+        let save = try XCTUnwrap(menu.item(withTitle: "Save This Layout…"))
         XCTAssertFalse(save.isEnabled)
         await coordinator.waitUntilIdle()
         XCTAssertEqual(profile.title, "MacBook")
-        XCTAssertEqual(profile.subtitle, "1 pantalla · 3 escritorios")
+        XCTAssertEqual(profile.subtitle, "1 display · 3 desktops")
         XCTAssertTrue(save.isEnabled)
         XCTAssertEqual(save.representedObject as? ProfileTopology, .portable)
 
-        rig.current = Rig.snapshot(external: true)
+        rig.current = Rig.originalDesktops(monitorName: "DELL U2723QE")
         coordinator.receive(.screensChanged)
         XCTAssertNil(save.representedObject)
         XCTAssertFalse(save.isEnabled)
         await coordinator.waitUntilIdle()
-        XCTAssertEqual(profile.title, "MacBook + monitor")
-        XCTAssertEqual(profile.subtitle, "2 pantallas · 3 escritorios en el monitor externo")
-        XCTAssertTrue(menu.item(withTitle: "Guardar distribución para MacBook + monitor…") === save)
+        XCTAssertEqual(profile.title, "DELL U2723QE")
+        XCTAssertEqual(profile.subtitle, "No saved profile · 3 desktops · ID onitor")
+        XCTAssertTrue(menu.item(withTitle: "Save Layout for DELL U2723QE…") === save)
         XCTAssertEqual(save.representedObject as? ProfileTopology, .external(displayID: "monitor"))
         XCTAssertTrue(save.isEnabled)
     }
@@ -266,7 +266,7 @@ final class LayoutCoordinatorTests: XCTestCase {
         coordinator.restoreNow()
         await coordinator.waitUntilIdle()
         let result = try XCTUnwrap(coordinator.lastRestorationResult)
-        XCTAssertEqual(result.summary, "Restauración parcial · 0 movimientos")
+        XCTAssertEqual(result.summary, "Partial restoration · 0 moves")
         func visibleMessages() -> [String] {
             menu.items.filter { !$0.isHidden }.flatMap { [$0.title, $0.subtitle ?? ""] }
         }
@@ -294,7 +294,7 @@ final class LayoutCoordinatorTests: XCTestCase {
         XCTAssertEqual(rig.finishCount, 1)
         XCTAssertTrue(rig.moves.isEmpty)
         XCTAssertEqual(rig.fullReadCount, 2)
-        XCTAssertTrue(coordinator.status.hasPrefix("Restaurado"))
+        XCTAssertTrue(coordinator.status.hasPrefix("Restored"))
     }
 
     func testPortableAndReadyExternalProfilesDoNotCreateRecoverySession() async throws {
@@ -308,7 +308,7 @@ final class LayoutCoordinatorTests: XCTestCase {
             await coordinator.waitUntilIdle()
             XCTAssertEqual(rig.sessionCount, 0)
             XCTAssertEqual(rig.finishCount, 0)
-            XCTAssertTrue(coordinator.status.hasPrefix("Restaurado"))
+            XCTAssertTrue(coordinator.status.hasPrefix("Restored"))
         }
     }
 
@@ -331,7 +331,7 @@ final class LayoutCoordinatorTests: XCTestCase {
             await coordinator.waitUntilIdle()
             XCTAssertEqual(rig.sessionCount, 1)
             XCTAssertEqual(rig.finishCount, 1)
-            XCTAssertTrue(coordinator.status.contains("manual"))
+            XCTAssertTrue(coordinator.status.contains("Restore Now"))
         }
     }
 
@@ -351,7 +351,7 @@ final class LayoutCoordinatorTests: XCTestCase {
         await coordinator.waitUntilIdle()
         XCTAssertEqual(rig.placements.count, 2)
         XCTAssertEqual(rig.sessionCount, 1)
-        XCTAssertTrue(coordinator.status.contains("manual"))
+        XCTAssertTrue(coordinator.status.contains("Restore Now"))
     }
 
     func testCancellationWaitsForCleanupBeforeAllowingAnotherRecovery() async throws {
@@ -377,7 +377,7 @@ final class LayoutCoordinatorTests: XCTestCase {
         await coordinator.waitUntilIdle()
         XCTAssertEqual(rig.placements.count, 1)
         XCTAssertEqual(rig.finishCount, 1)
-        XCTAssertTrue(coordinator.status.contains("manual"))
+        XCTAssertTrue(coordinator.status.contains("Restore Now"))
     }
 
     func testPlanningFailureAfterVerifiedGestureAndSuccessfulCleanupDoesNotBlockAutomaticRetry() async throws {
@@ -394,13 +394,13 @@ final class LayoutCoordinatorTests: XCTestCase {
         XCTAssertEqual(rig.placements.count, 1, "The second return would leave no ordinary desktop on the built-in display")
         XCTAssertEqual(rig.finishCount, 1)
         XCTAssertEqual(rig.fullReadCount, 0)
-        XCTAssertFalse(coordinator.status.contains("manual"))
+        XCTAssertFalse(coordinator.status.contains("Restore Now"))
         rig.current = migrated
         coordinator.receive(.screensChanged)
         await coordinator.waitUntilIdle()
         XCTAssertEqual(rig.sessionCount, 2)
         XCTAssertEqual(rig.finishCount, 2)
-        XCTAssertTrue(coordinator.status.hasPrefix("Restaurado"))
+        XCTAssertTrue(coordinator.status.hasPrefix("Restored"))
     }
 
     func testFreshFullInventoryMustMatchStabilizedStructureBeforeSavingOrMoving() async throws {
@@ -415,7 +415,7 @@ final class LayoutCoordinatorTests: XCTestCase {
             await coordinator.waitUntilIdle()
             XCTAssertEqual(rig.saved, originalProfile)
             XCTAssertTrue(rig.moves.isEmpty)
-            XCTAssertTrue(coordinator.status.hasPrefix("Pendiente"))
+            XCTAssertTrue(coordinator.status.hasPrefix("Pending"))
             XCTAssertNil(coordinator.detectedTopology)
             XCTAssertNil(coordinator.restorationPhase)
         }
@@ -435,7 +435,7 @@ final class LayoutCoordinatorTests: XCTestCase {
                 await coordinator.waitUntilIdle()
                 XCTAssertEqual(rig.saved, originalProfile)
                 XCTAssertTrue(rig.moves.isEmpty)
-                XCTAssertTrue(coordinator.status.hasPrefix("Pendiente"))
+                XCTAssertTrue(coordinator.status.hasPrefix("Pending"))
             }
         }
     }
@@ -468,7 +468,7 @@ final class LayoutCoordinatorTests: XCTestCase {
         XCTAssertEqual(rig.placements.count, 3)
         XCTAssertEqual(rig.fullReadCount, 1)
         XCTAssertTrue(rig.moves.isEmpty)
-        XCTAssertTrue(coordinator.status.hasPrefix("Pendiente"))
+        XCTAssertTrue(coordinator.status.hasPrefix("Pending"))
     }
 
     func testCancellationOfFreshInventoryAfterThirdDesktopReturnPreventsWindowMoves() async throws {
@@ -492,7 +492,7 @@ final class LayoutCoordinatorTests: XCTestCase {
         await coordinator.waitUntilIdle()
         XCTAssertEqual(rig.displayReadCount, 3)
         XCTAssertEqual(rig.fullReadCount, 0)
-        XCTAssertTrue(coordinator.status.hasPrefix("Listo"))
+        XCTAssertTrue(coordinator.status.hasPrefix("Ready"))
     }
 
     func testPhaseStartsOnlyForRevalidatedWindowMovementAndCoversPartialVerification() async throws {
@@ -505,7 +505,7 @@ final class LayoutCoordinatorTests: XCTestCase {
         var reportedPartial = false
         coordinator.onChange = {
             if let phase = coordinator.restorationPhase { phases.append(phase) }
-            if !reportedPartial, coordinator.status.hasPrefix("Restauración parcial") {
+            if !reportedPartial, coordinator.status.hasPrefix("Partial restoration") {
                 reportedPartial = true
                 XCTAssertEqual(coordinator.restorationPhase, .verifying)
             }
@@ -539,7 +539,7 @@ final class LayoutCoordinatorTests: XCTestCase {
         rig.current = DesktopSnapshot(displays: rig.current.displays, windows: [])
         coordinator.restoreNow()
         await coordinator.waitUntilIdle()
-        XCTAssertTrue(coordinator.status.hasPrefix("Restauración parcial"))
+        XCTAssertTrue(coordinator.status.hasPrefix("Partial restoration"))
         XCTAssertTrue(rig.moves.isEmpty)
     }
 
@@ -598,7 +598,7 @@ final class LayoutCoordinatorTests: XCTestCase {
         continuation?.resume()
         await coordinator.waitUntilIdle()
         XCTAssertNil(coordinator.restorationPhase)
-        XCTAssertTrue(coordinator.status.hasPrefix("Pendiente"))
+        XCTAssertTrue(coordinator.status.hasPrefix("Pending"))
     }
 
     func testCancellationAndReplacementHidePhaseBeforeSuspendedMoveReturns() async throws {
@@ -654,7 +654,7 @@ final class LayoutCoordinatorTests: XCTestCase {
         coordinator.receive(.unlocked)
         await coordinator.waitUntilIdle()
         XCTAssertEqual(rig.placements.count, 3)
-        XCTAssertTrue(coordinator.status.hasPrefix("Restaurado"))
+        XCTAssertTrue(coordinator.status.hasPrefix("Restored"))
     }
 
     func testCancelledDesktopCleanupCannotRevivePhaseAfterUnlock() async throws {
@@ -681,6 +681,128 @@ final class LayoutCoordinatorTests: XCTestCase {
         XCTAssertEqual(rig.sessionCount, 1)
     }
 
+    func testDistinctMonitorProfilesSurviveRoundTripThroughPortableWithRealStore() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let rig = Rig()
+        let store = ProfileStore(directory: directory)
+        rig.store = store
+        let home = Rig.originalDesktops()
+        let office = Rig.originalDesktops(stableUUIDs: false, monitorID: "office", spaceOffset: 1000)
+        let coordinator = rig.coordinator(automatic: true)
+        for (snapshot, external) in [(home, true), (Rig.snapshot(), false), (office, true)] {
+            rig.current = snapshot
+            coordinator.saveCurrent(external: external)
+            await coordinator.waitUntilIdle()
+        }
+        let homeProfile = try XCTUnwrap(store.load(.external(displayID: "monitor")))
+        let homeRegistry = try XCTUnwrap(store.loadExternalDesktopRegistry(profile: homeProfile))
+        let officeProfile = try XCTUnwrap(store.load(.external(displayID: "office")))
+        let officeRegistry = try XCTUnwrap(store.loadExternalDesktopRegistry(profile: officeProfile))
+        XCTAssertNotEqual(homeRegistry.displayID, officeRegistry.displayID)
+        func connect(_ snapshot: DesktopSnapshot) async {
+            rig.moves.removeAll()
+            rig.operations.removeAll()
+            rig.current = snapshot
+            coordinator.receive(.screensChanged)
+            await coordinator.waitUntilIdle()
+        }
+        func migrated(_ id: String, offset: UInt64) -> DesktopSnapshot {
+            let snapshot = Rig.originalDesktops(migrated: true, stableUUIDs: id != "office", monitorID: id, spaceOffset: offset)
+            let windows = snapshot.windows.enumerated().map { index, window in
+                guard index == 0 else { return window }
+                return WindowSnapshot(identity: window.identity, title: window.title, frame: window.frame, spaceIDs: [1])
+            }
+            return DesktopSnapshot(displays: snapshot.displays, windows: windows)
+        }
+        await connect(home)
+        XCTAssertTrue(rig.operations.isEmpty)
+        await connect(Rig.snapshot(space: 2))
+        XCTAssertEqual(rig.operations, ["move:1", "move:1"])
+        XCTAssertEqual(Set(rig.moves.map(\.displayID)), ["builtin"])
+        await connect(migrated("office", offset: 1000))
+        XCTAssertEqual(rig.operations, ["place:1010", "place:1011", "place:1012", "move:1010"])
+        XCTAssertEqual(rig.moves.first?.displayID, "office")
+        await connect(Rig.snapshot(space: 2))
+        XCTAssertEqual(rig.operations, ["move:1", "move:1"])
+        XCTAssertEqual(Set(rig.moves.map(\.displayID)), ["builtin"])
+        await connect(migrated("monitor", offset: 0))
+        XCTAssertEqual(rig.operations, ["place:10", "place:11", "place:12", "move:10"])
+        XCTAssertEqual(rig.moves.first?.displayID, "monitor")
+        XCTAssertEqual(try store.load(.external(displayID: "monitor")), homeProfile)
+        XCTAssertEqual(try store.load(.external(displayID: "office")), officeProfile)
+        XCTAssertEqual(try store.loadExternalDesktopRegistry(profile: homeProfile), homeRegistry)
+        XCTAssertEqual(try store.loadExternalDesktopRegistry(profile: officeProfile), officeRegistry)
+    }
+
+    func testSavingOrFailingAnotherProfileDoesNotClearUncertainDesktopGestureBlock() async throws {
+        for saveSucceeds in [true, false] {
+            let rig = Rig()
+            rig.saved = [try LayoutProfile.capture(snapshot: Rig.originalDesktops())]
+            rig.current = Rig.originalDesktops(migrated: true)
+            rig.placeNoOp = true
+            let coordinator = rig.coordinator(automatic: true)
+            coordinator.start()
+            await coordinator.waitUntilIdle()
+            XCTAssertEqual(rig.placements.count, 1)
+            rig.current = Rig.originalDesktops(monitorID: "office", spaceOffset: 1000)
+            coordinator.receive(.screensChanged)
+            await coordinator.waitUntilIdle()
+            coordinator.saveCurrent(external: true,
+                expectedTopology: .external(displayID: saveSucceeds ? "office" : "other"))
+            await coordinator.waitUntilIdle()
+            XCTAssertEqual(rig.saved.contains { $0.topology == .external(displayID: "office") }, saveSucceeds)
+            rig.placeNoOp = false
+            rig.current = Rig.originalDesktops(migrated: true)
+            coordinator.receive(.screensChanged)
+            await coordinator.waitUntilIdle()
+            XCTAssertEqual(rig.placements.count, 1)
+            XCTAssertEqual(rig.sessionCount, 1)
+            XCTAssertTrue(coordinator.status.contains("Restore Now"))
+        }
+    }
+
+    func testOpenMenuNamesTheConnectedMonitorAndLetsNewMonitorBeSaved() async throws {
+        _ = NSApplication.shared
+        let rig = Rig()
+        let home = Rig.originalDesktops(monitorName: "Home Monitor")
+        let office = Rig.originalDesktops(monitorID: "office", monitorName: "Office Monitor")
+        rig.current = home
+        rig.saved = [try LayoutProfile.capture(snapshot: home)]
+        let coordinator = rig.coordinator()
+        let delegate = AppDelegate(coordinator: coordinator, hasAccessibility: { true })
+        delegate.applicationDidFinishLaunching(Notification(name: NSApplication.didFinishLaunchingNotification))
+        defer { delegate.applicationWillTerminate(Notification(name: NSApplication.willTerminateNotification)) }
+        let menu = delegate.statusMenu
+        delegate.menuWillOpen(menu)
+        await coordinator.waitUntilIdle()
+        XCTAssertEqual(menu.item(withTitle: "Save Layout for Home Monitor…")?.isEnabled, true)
+        XCTAssertEqual(menu.item(withTitle: "Restore Now")?.isEnabled, true)
+
+        rig.current = office
+        coordinator.receive(.screensChanged)
+        await coordinator.waitUntilIdle()
+        XCTAssertTrue(menu.item(withTitle: "Office Monitor")?.subtitle?.contains("No saved profile") == true)
+        XCTAssertEqual(menu.item(withTitle: "Save Layout for Office Monitor…")?.isEnabled, true)
+        XCTAssertEqual(menu.item(withTitle: "Restore Now")?.isEnabled, false)
+        coordinator.saveCurrent(external: true, expectedTopology: .external(displayID: "office"))
+        await coordinator.waitUntilIdle()
+        XCTAssertFalse(menu.item(withTitle: "Office Monitor")?.subtitle?.contains("No saved profile") == true)
+        XCTAssertEqual(menu.item(withTitle: "Restore Now")?.isEnabled, true)
+
+        rig.profileLoadFails = true
+        coordinator.receive(.screensChanged)
+        await coordinator.waitUntilIdle()
+        XCTAssertTrue(coordinator.status.hasPrefix("Pending"))
+        XCTAssertFalse(menu.item(withTitle: "Office Monitor")?.subtitle?.contains("No saved profile") == true)
+
+        rig.profileLoadFails = false
+        rig.current = Rig.originalDesktops(monitorID: "office", monitorName: " ")
+        coordinator.receive(.screensChanged)
+        await coordinator.waitUntilIdle()
+        XCTAssertEqual(menu.item(withTitle: "Save Layout for Monitor office…")?.isEnabled, true)
+    }
+
     func testDetectedTopologyNeedsStableReadingsAndUpdatesWithoutAutomaticRestoration() async {
         let rig = Rig()
         let coordinator = rig.coordinator()
@@ -705,7 +827,8 @@ final class LayoutCoordinatorTests: XCTestCase {
         await coordinator.waitUntilIdle()
         XCTAssertEqual(coordinator.detectedTopology, .portable)
         XCTAssertEqual(rig.fullReadCount, 0)
-        XCTAssertEqual(rig.loads, 0)
+        XCTAssertEqual(rig.loads, 1)
+        XCTAssertTrue(rig.moves.isEmpty)
     }
 
     func testDetectedDesktopCountUsesOrdinarySpacesOfTheRelevantDisplay() async {
@@ -783,11 +906,11 @@ final class LayoutCoordinatorTests: XCTestCase {
         coordinator.restoreNow()
         await coordinator.waitUntilIdle()
         let summary = try XCTUnwrap(coordinator.lastRestorationResult?.summary)
-        XCTAssertTrue(summary.hasPrefix("Restaurado · 2 movimientos"))
+        XCTAssertTrue(summary.hasPrefix("Restored · 2 moves"))
         XCTAssertEqual(coordinator.lastRestorationResult?.details, [])
         coordinator.start()
         await coordinator.waitUntilIdle()
-        XCTAssertTrue(coordinator.status.hasPrefix("Listo"))
+        XCTAssertTrue(coordinator.status.hasPrefix("Ready"))
         XCTAssertEqual(coordinator.lastRestorationResult?.summary, summary)
         coordinator.receive(.willSleep)
         XCTAssertNil(coordinator.detectedDesktopCount)
@@ -813,7 +936,7 @@ final class LayoutCoordinatorTests: XCTestCase {
         coordinator.receive(.willSleep)
         coordinator.receive(.didWake)
         await coordinator.waitUntilIdle()
-        XCTAssertEqual(coordinator.status, "Configuración sin cambios")
+        XCTAssertEqual(coordinator.status, "Display setup unchanged")
         XCTAssertEqual(coordinator.lastRestorationResult?.summary, summary)
         XCTAssertEqual(rig.moves.count, 2)
     }
@@ -848,7 +971,7 @@ final class LayoutCoordinatorTests: XCTestCase {
         coordinator.restoreNow()
         await coordinator.waitUntilIdle()
         XCTAssertEqual(coordinator.lastRestorationResult?.summary, coordinator.status)
-        XCTAssertTrue(coordinator.status.hasPrefix("Restauración parcial"))
+        XCTAssertTrue(coordinator.status.hasPrefix("Partial restoration"))
         XCTAssertEqual(coordinator.lastRestorationResult?.details, coordinator.details)
         XCTAssertFalse(coordinator.details.isEmpty)
         rig.saved = [try LayoutProfile.capture(snapshot: Rig.originalDesktops())]
@@ -856,7 +979,7 @@ final class LayoutCoordinatorTests: XCTestCase {
         rig.placeNoOp = true
         coordinator.restoreNow()
         await coordinator.waitUntilIdle()
-        XCTAssertTrue(coordinator.status.hasPrefix("Pendiente"))
+        XCTAssertTrue(coordinator.status.hasPrefix("Pending"))
         XCTAssertEqual(coordinator.lastRestorationResult?.summary, coordinator.status)
     }
 
@@ -868,7 +991,7 @@ final class LayoutCoordinatorTests: XCTestCase {
         await coordinator.waitUntilIdle()
         XCTAssertTrue(rig.saved.isEmpty)
         XCTAssertEqual(coordinator.detectedTopology, .external(displayID: "monitor"))
-        XCTAssertTrue(coordinator.status.contains("vuelve a abrir el menú"))
+        XCTAssertTrue(coordinator.status.contains("Reopen the menu"))
         coordinator.saveCurrent(external: true, expectedTopology: .external(displayID: "monitor"))
         await coordinator.waitUntilIdle()
         XCTAssertEqual(rig.saved.count, 1)
@@ -893,7 +1016,7 @@ final class LayoutCoordinatorTests: XCTestCase {
             XCTAssertEqual(rig.placements.count + rig.additions.count, 1)
             XCTAssertEqual(rig.sessionCount, 1)
             XCTAssertEqual(rig.finishCount, 1)
-            XCTAssertTrue(coordinator.status.contains("manual"))
+            XCTAssertTrue(coordinator.status.contains("Restore Now"))
 
             rig.current = Rig.snapshot(space: 2)
             coordinator.receive(.screensChanged)
@@ -908,7 +1031,7 @@ final class LayoutCoordinatorTests: XCTestCase {
             rig.addNoOp = false
             coordinator.restoreNow()
             await coordinator.waitUntilIdle()
-            XCTAssertTrue(coordinator.status.hasPrefix("Restaurado"))
+            XCTAssertTrue(coordinator.status.hasPrefix("Restored"))
             XCTAssertEqual(rig.placements.count, returning ? 4 : 0)
             XCTAssertEqual(rig.additions.count, returning ? 0 : 3)
             XCTAssertEqual(rig.sessionCount, 2)
@@ -933,10 +1056,10 @@ final class LayoutCoordinatorTests: XCTestCase {
             await coordinator.waitUntilIdle()
             XCTAssertEqual(rig.placements.count + rig.additions.count, 1)
             XCTAssertTrue(rig.moves.isEmpty)
-            XCTAssertTrue(coordinator.status.contains("manual"))
+            XCTAssertTrue(coordinator.status.contains("Restore Now"))
             coordinator.restoreNow()
             await coordinator.waitUntilIdle()
-            XCTAssertTrue(coordinator.status.hasPrefix("Restaurado"))
+            XCTAssertTrue(coordinator.status.hasPrefix("Restored"))
         }
     }
 
@@ -959,11 +1082,11 @@ final class LayoutCoordinatorTests: XCTestCase {
         await coordinator.waitUntilIdle()
         XCTAssertEqual(rig.additions.count, 1)
         XCTAssertTrue(rig.moves.isEmpty)
-        XCTAssertTrue(coordinator.status.contains("manual"))
+        XCTAssertTrue(coordinator.status.contains("Restore Now"))
         coordinator.restoreNow()
         await coordinator.waitUntilIdle()
         XCTAssertEqual(rig.additions.count, 2)
-        XCTAssertTrue(coordinator.status.hasPrefix("Restaurado"))
+        XCTAssertTrue(coordinator.status.hasPrefix("Restored"))
     }
 
     func testExplicitExternalSaveRearmsAutomaticRecoveryForTheNewCapture() async throws {
@@ -983,7 +1106,7 @@ final class LayoutCoordinatorTests: XCTestCase {
         await coordinator.waitUntilIdle()
         XCTAssertEqual(rig.additions.count, 1)
         XCTAssertEqual(rig.placements.count, 3)
-        XCTAssertTrue(coordinator.status.hasPrefix("Restaurado"))
+        XCTAssertTrue(coordinator.status.hasPrefix("Restored"))
     }
 
     func testManualAndAutomaticReturnOriginalDesktopsWithUnmanagedWindowBeforeAnyCreation() async throws {
@@ -1009,17 +1132,18 @@ final class LayoutCoordinatorTests: XCTestCase {
             XCTAssertEqual(observed.spaceIDs, unrelated.spaceIDs)
             XCTAssertEqual(observed.title, unrelated.title)
             XCTAssertTrue(rig.current.displays[1].frame.containsCenter(of: observed.frame))
-            XCTAssertTrue(coordinator.status.contains("3 escritorios devueltos"))
-            XCTAssertTrue(coordinator.details.contains { $0.contains("1 escritorios adicionales") })
+            XCTAssertTrue(coordinator.status.contains("3 desktops returned"))
+            XCTAssertTrue(coordinator.details.contains { $0.contains("1 extra desktop") })
             coordinator.restoreNow()
             await coordinator.waitUntilIdle()
             XCTAssertEqual(rig.placements.count, 3)
-            XCTAssertTrue(coordinator.status.hasPrefix("Restaurado"))
+            XCTAssertTrue(coordinator.status.hasPrefix("Restored"))
             let loads = rig.loads
             coordinator.receive(.willSleep)
             coordinator.receive(.didWake)
             await coordinator.waitUntilIdle()
-            XCTAssertEqual(rig.loads, loads)
+            XCTAssertEqual(rig.loads, loads + (automatic ? 0 : 1))
+            XCTAssertEqual(rig.placements.count, 3)
             XCTAssertEqual(rig.saved, saved)
             XCTAssertEqual(rig.registrySaveCount, 1, "Hotplug never rewrites the saved original identities")
         }
@@ -1064,7 +1188,7 @@ final class LayoutCoordinatorTests: XCTestCase {
         XCTAssertTrue(rig.additions.isEmpty)
         XCTAssertTrue(rig.moves.isEmpty)
         XCTAssertEqual(rig.loads, 1)
-        XCTAssertTrue(coordinator.status.contains("No se confirmó"))
+        XCTAssertTrue(coordinator.status.contains("Could not verify the desktop return"))
     }
 
     func testCancellationDuringReturnDiscardsFollowingDesktopsAndWindowMoves() async throws {
@@ -1093,7 +1217,7 @@ final class LayoutCoordinatorTests: XCTestCase {
         XCTAssertTrue(rig.placements.isEmpty)
         XCTAssertTrue(rig.additions.isEmpty)
         XCTAssertTrue(rig.moves.isEmpty)
-        XCTAssertTrue(coordinator.status.hasPrefix("Pendiente"))
+        XCTAssertTrue(coordinator.status.hasPrefix("Pending"))
     }
 
     func testReconnectRecreatesMissingExternalOrdinaryDesktopsBeforeMovingWindows() async throws {
@@ -1104,18 +1228,18 @@ final class LayoutCoordinatorTests: XCTestCase {
         coordinator.restoreNow()
         await coordinator.waitUntilIdle()
         XCTAssertEqual(rig.moves.map(\.spaceID), [100, 101, 102])
-        XCTAssertTrue(coordinator.status.hasPrefix("Restaurado"))
+        XCTAssertTrue(coordinator.status.hasPrefix("Restored"))
         XCTAssertEqual(rig.current.displays.last?.spaces.count, 3)
         XCTAssertEqual(rig.additions, ["monitor", "monitor"])
         XCTAssertEqual(rig.operations, ["add", "add", "move:100", "move:101", "move:102"])
-        XCTAssertTrue(coordinator.status.contains("2 escritorios creados"))
+        XCTAssertTrue(coordinator.status.contains("2 desktops created"))
         XCTAssertEqual(rig.registrySaveCount, 2)
         let saved = rig.saved
         coordinator.restoreNow()
         await coordinator.waitUntilIdle()
         XCTAssertEqual(rig.additions.count, 2)
         XCTAssertEqual(rig.moves.count, 3)
-        XCTAssertTrue(coordinator.status.contains("0 movimientos"))
+        XCTAssertTrue(coordinator.status.contains("0 moves"))
         XCTAssertEqual(rig.saved, saved)
     }
 
@@ -1132,7 +1256,7 @@ final class LayoutCoordinatorTests: XCTestCase {
             await coordinator.waitUntilIdle()
             XCTAssertEqual(rig.current.displays[0], migrated)
             XCTAssertEqual(Array(rig.moves.suffix(3)).map(\.spaceID), [firstID, firstID + 1, firstID + 2])
-            XCTAssertTrue(coordinator.status.hasPrefix("Restaurado"))
+            XCTAssertTrue(coordinator.status.hasPrefix("Restored"))
             rig.current = DesktopSnapshot(displays: [migrated], windows: rig.current.windows)
             coordinator.receive(.screensChanged)
             await coordinator.waitUntilIdle()
@@ -1152,7 +1276,7 @@ final class LayoutCoordinatorTests: XCTestCase {
         XCTAssertEqual(rig.additions.count, 1)
         XCTAssertEqual(rig.loads, 1)
         XCTAssertTrue(rig.moves.isEmpty)
-        XCTAssertTrue(coordinator.status.contains("no creó"))
+        XCTAssertTrue(coordinator.status.contains("did not create a desktop"))
     }
 
     func testCancellationDuringCreationStopsRemainingCreationAndMovement() async throws {
@@ -1217,7 +1341,7 @@ final class LayoutCoordinatorTests: XCTestCase {
         await coordinator.waitUntilIdle()
         XCTAssertEqual(rig.additions.count, 2)
         XCTAssertTrue(rig.moves.isEmpty)
-        XCTAssertTrue(coordinator.status.hasPrefix("Restaurado"))
+        XCTAssertTrue(coordinator.status.hasPrefix("Restored"))
         XCTAssertGreaterThanOrEqual(rig.displayReadCount, 7)
     }
 
@@ -1232,11 +1356,11 @@ final class LayoutCoordinatorTests: XCTestCase {
         coordinator.restoreNow()
         await coordinator.waitUntilIdle()
         XCTAssertEqual(rig.moves.count, 2)
-        XCTAssertTrue(coordinator.status.hasPrefix("Restaurado"))
+        XCTAssertTrue(coordinator.status.hasPrefix("Restored"))
         coordinator.restoreNow()
         await coordinator.waitUntilIdle()
         XCTAssertEqual(rig.moves.count, 2)
-        XCTAssertTrue(coordinator.status.contains("0 movimientos"))
+        XCTAssertTrue(coordinator.status.contains("0 moves"))
         XCTAssertEqual(rig.saved, saved)
     }
 
@@ -1254,7 +1378,7 @@ final class LayoutCoordinatorTests: XCTestCase {
         coordinator.restoreNow()
         await coordinator.waitUntilIdle()
         XCTAssertEqual(rig.moves.count, 2)
-        XCTAssertTrue(coordinator.status.hasPrefix("Restaurado"))
+        XCTAssertTrue(coordinator.status.hasPrefix("Restored"))
     }
 
     func testWrongProfileChoiceNeverSaves() async {
@@ -1263,7 +1387,7 @@ final class LayoutCoordinatorTests: XCTestCase {
         coordinator.saveCurrent(external: true)
         await coordinator.waitUntilIdle()
         XCTAssertTrue(rig.saved.isEmpty)
-        XCTAssertTrue(coordinator.status.contains("Conecta el monitor"))
+        XCTAssertTrue(coordinator.status.contains("Connect the external monitor"))
     }
 
     func testTransientReadFailureAndIncompleteSamplesDoNotCountAsStable() async {
@@ -1292,7 +1416,7 @@ final class LayoutCoordinatorTests: XCTestCase {
         coordinator.saveCurrent(external: false)
         await coordinator.waitUntilIdle()
         XCTAssertEqual(rig.saved.first?.windows.count, windows.count)
-        XCTAssertEqual(coordinator.status, "Distribución guardada · MacBook · 200 pendientes")
+        XCTAssertEqual(coordinator.status, "Layout saved · MacBook · 200 pending")
         XCTAssertTrue(coordinator.details.isEmpty)
     }
 
@@ -1308,7 +1432,7 @@ final class LayoutCoordinatorTests: XCTestCase {
         coordinator.restoreNow()
         await coordinator.waitUntilIdle()
         XCTAssertEqual(rig.moves.count, 1)
-        XCTAssertEqual(rig.loads, 1)
+        XCTAssertEqual(rig.loads, 2, "Inspecting the new monitor reads its profile without restoring it")
         XCTAssertFalse(coordinator.automaticEnabled)
     }
 
@@ -1320,7 +1444,7 @@ final class LayoutCoordinatorTests: XCTestCase {
         coordinator.restoreNow()
         await coordinator.waitUntilIdle()
         XCTAssertEqual(coordinator.details.count, 2)
-        XCTAssertTrue(coordinator.details[0].contains("ventana"))
+        XCTAssertTrue(coordinator.details[0].contains("window"))
         XCTAssertTrue(rig.moves.isEmpty)
     }
 
@@ -1350,11 +1474,11 @@ final class LayoutCoordinatorTests: XCTestCase {
         let coordinator = rig.coordinator(automatic: true)
         coordinator.start()
         await coordinator.waitUntilIdle()
-        XCTAssertTrue(coordinator.status.hasPrefix("Restauración parcial"))
+        XCTAssertTrue(coordinator.status.hasPrefix("Partial restoration"))
         coordinator.receive(.willSleep)
         coordinator.receive(.didWake)
         await coordinator.waitUntilIdle()
-        XCTAssertTrue(coordinator.status.hasPrefix("Restaurado"))
+        XCTAssertTrue(coordinator.status.hasPrefix("Restored"))
         XCTAssertEqual(rig.loads, 2)
         XCTAssertEqual(rig.moves.count, 3)
     }
@@ -1370,7 +1494,7 @@ final class LayoutCoordinatorTests: XCTestCase {
             rig.current = Rig.snapshot(external: external, space: 2)
             coordinator.receive(.didWake)
             await coordinator.waitUntilIdle()
-            XCTAssertTrue(coordinator.status.hasPrefix("Restaurado"))
+            XCTAssertTrue(coordinator.status.hasPrefix("Restored"))
         }
         XCTAssertEqual(rig.moves.count, 4)
     }
@@ -1406,7 +1530,7 @@ final class LayoutCoordinatorTests: XCTestCase {
         XCTAssertEqual(rig.moves.count, 1)
         XCTAssertEqual(rig.maximumConcurrentMoves, 1)
         XCTAssertEqual(rig.loads, 2)
-        XCTAssertTrue(coordinator.status.hasPrefix("Restaurado"))
+        XCTAssertTrue(coordinator.status.hasPrefix("Restored"))
     }
 
     func testRecalculationWaitsForSuspendedMoveToFinish() async throws {
@@ -1446,7 +1570,7 @@ final class LayoutCoordinatorTests: XCTestCase {
         await coordinator.waitUntilIdle()
         XCTAssertEqual(rig.moves.count, 1)
         XCTAssertEqual(rig.loads, 2)
-        XCTAssertTrue(coordinator.status.hasPrefix("Restaurado"))
+        XCTAssertTrue(coordinator.status.hasPrefix("Restored"))
     }
 
     func testLockedSessionCancelsWithoutStartingAnotherMove() async throws {
@@ -1462,7 +1586,7 @@ final class LayoutCoordinatorTests: XCTestCase {
         coordinator.receive(.unlocked)
         await coordinator.waitUntilIdle()
         XCTAssertEqual(rig.moves.count, 2)
-        XCTAssertTrue(coordinator.status.hasPrefix("Restaurado"))
+        XCTAssertTrue(coordinator.status.hasPrefix("Restored"))
     }
 
     func testUnstableScreensReachDeadlineWithoutMovingOrSaving() async {
@@ -1474,7 +1598,7 @@ final class LayoutCoordinatorTests: XCTestCase {
         XCTAssertEqual(rig.displayReadCount, 30)
         XCTAssertTrue(rig.moves.isEmpty)
         XCTAssertTrue(rig.saved.isEmpty)
-        XCTAssertTrue(coordinator.status.contains("no se estabilizan"))
+        XCTAssertTrue(coordinator.status.contains("did not stabilize"))
     }
 }
 
@@ -1483,8 +1607,10 @@ private final class Rig {
     var current = Rig.snapshot()
     var readings: [DesktopSnapshot] = []
     var saved: [LayoutProfile] = []
+    var store: ProfileStore?
     var moves: [WindowMove] = []
     var loads = 0
+    var profileLoadFails = false
     var displayReadCount = 0
     var fullReadCount = 0
     var fullReadings: [DesktopSnapshot] = []
@@ -1548,8 +1674,11 @@ private final class Rig {
             await self.onMoveAsync?()
         }, load: { topology in
             self.loads += 1
+            if self.profileLoadFails { throw CocoaError(.fileReadCorruptFile) }
+            if let store = self.store { return try store.load(topology) }
             return self.saved.first { $0.topology == topology }
         }, save: { profile in
+            if let store = self.store { try store.save(profile); return }
             self.saved.removeAll { $0.topology == profile.topology }
             self.saved.append(profile)
         }, makeDesktopRecoverySession: {
@@ -1597,7 +1726,11 @@ private final class Rig {
                 await self.onFinishAsync?()
                 if self.finishFails { throw NSError(domain: "MissionControlCloseFailure", code: 1) }
             })
-        }, loadDesktopRegistry: { _ in self.registry }, saveDesktopRegistry: { registry, _ in
+        }, loadDesktopRegistry: { profile in
+            if let store = self.store { return try store.loadExternalDesktopRegistry(profile: profile) }
+            return self.registry
+        }, saveDesktopRegistry: { registry, profile in
+            if let store = self.store { try store.saveExternalDesktopRegistry(registry, profile: profile); return }
             self.registry = registry
             self.registrySaveCount += 1
         }, pause: { _ in
@@ -1640,23 +1773,25 @@ private final class Rig {
         return DesktopSnapshot(displays: [builtIn, monitor], windows: windows)
     }
 
-    static func originalDesktops(migrated: Bool = false, reordered: Bool = false, stableUUIDs: Bool = true) -> DesktopSnapshot {
+    static func originalDesktops(migrated: Bool = false, reordered: Bool = false, stableUUIDs: Bool = true,
+                                 monitorID: String = "monitor", spaceOffset: UInt64 = 0, monitorName: String? = nil) -> DesktopSnapshot {
         let state = threeExternalDesktops()
+        func remapped(_ id: UInt64) -> UInt64 { id >= 10 ? id + spaceOffset : id }
         func space(_ id: UInt64) -> SpaceSnapshot {
-            SpaceSnapshot(id: id, kind: .ordinary,
-                stableUUID: stableUUIDs ? UUID(uuidString: String(format: "00000000-0000-0000-0000-%012llX", id)) : nil)
+            SpaceSnapshot(id: remapped(id), kind: .ordinary,
+                stableUUID: stableUUIDs ? UUID(uuidString: String(format: "00000000-0000-0000-0000-%012llX", remapped(id))) : nil)
         }
         let builtIn = DisplaySnapshot(id: "builtin", isBuiltIn: true, frame: state.displays[0].frame,
             spaces: (migrated ? [1, 2, 3, 10, 11, 12] : [1, 2, 3]).map(space))
-        let monitor = DisplaySnapshot(id: "monitor", isBuiltIn: false, frame: state.displays[1].frame,
-            spaces: (migrated ? [100] : (reordered ? [12, 10, 11] : [10, 11, 12])).map(space))
+        let monitor = DisplaySnapshot(id: monitorID, isBuiltIn: false, frame: state.displays[1].frame,
+            spaces: (migrated ? [100] : (reordered ? [12, 10, 11] : [10, 11, 12])).map(space), localizedName: monitorName)
         var windows = state.windows.map { window in
             WindowSnapshot(identity: window.identity, title: window.title,
-                frame: .init(x: migrated ? 20 : 1020, y: 20, width: 100, height: 100), spaceIDs: window.spaceIDs)
+                frame: .init(x: migrated ? 20 : 1020, y: 20, width: 100, height: 100), spaceIDs: window.spaceIDs.map(remapped))
         }
         if migrated {
             windows.append(WindowSnapshot(identity: .init(process: .init(pid: 99, launchDate: Date(timeIntervalSince1970: 99)), windowID: 99, bundleIdentifier: "unmanaged.app"),
-                title: "unmanaged unsaved document", frame: .init(x: 20, y: 20, width: 120, height: 150), spaceIDs: [11]))
+                title: "unmanaged unsaved document", frame: .init(x: 20, y: 20, width: 120, height: 150), spaceIDs: [remapped(11)]))
         }
         return DesktopSnapshot(displays: [builtIn, monitor], windows: windows)
     }

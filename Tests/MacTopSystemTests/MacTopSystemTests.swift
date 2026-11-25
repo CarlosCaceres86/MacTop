@@ -148,7 +148,7 @@ final class MacTopSystemTests: XCTestCase {
         spaceIDs: [1, 3], ordinarySpaceIDs: [1, 2, 3], frame: frame))
     XCTAssertNotNil(
       inventoryIssue(
-        applicationIssue: "Sin fecha de inicio", hasPermission: true, matchedAXKinds: [],
+        applicationIssue: "No start date", hasPermission: true, matchedAXKinds: [],
         spaceIDs: [3], ordinarySpaceIDs: [1, 2, 3], frame: frame))
     XCTAssertNotNil(
       inventoryIssue(
@@ -229,7 +229,7 @@ final class MacTopSystemTests: XCTestCase {
         },
         reposition: { _, _ in
           events.append("AX")
-          throw SystemFailure.partial("AX no disponible")
+          throw SystemFailure.partial("AX unavailable")
         })
       XCTFail("The failed repair must stay partial")
     } catch {}

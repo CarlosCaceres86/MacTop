@@ -52,7 +52,7 @@ final class MissionControlPointer {
     guard point.x.isFinite, point.y.isFinite,
       pressed || !leftButtonDown(),
       type != .leftMouseDown || (!pressed && !leftButtonDown()) else {
-      throw SystemFailure.changed("El puntero ya está realizando un arrastre. No se ha agarrado el escritorio.")
+      throw SystemFailure.changed("The pointer is already dragging. The desktop was not grabbed.")
     }
     if type == .leftMouseDown { pressed = true }
     if type == .leftMouseUp { pressed = false }
@@ -81,7 +81,7 @@ extension MissionControlAccessibility {
     let bar = try desktopBar(displayID: displayID, expected: expected, root: tree.element)
     try Task.checkCancellation()
     let result = AXUIElementPerformAction(bar.buttons[index], kAXPressAction as CFString)
-    guard result == .success else { throw SystemFailure.partial("Mission Control no confirmó la activación del escritorio hermano.") }
+    guard result == .success else { throw SystemFailure.partial("Mission Control did not confirm activation of the sibling desktop.") }
   }
 
   func drag(
@@ -119,12 +119,12 @@ extension MissionControlAccessibility {
     let freshTarget = try desktopBar(displayID: step.targetDisplayID, expected: expected, root: tree.element)
     guard CFEqual(freshSource.buttons[sourceIndex], tile), CFEqual(freshTarget.buttons[anchor.index], targetTile),
       let rawGrab = Self.frame(tile), let freshBar = Self.frame(sourceBar.list) else {
-      throw SystemFailure.changed("Mission Control reconstruyó sus miniaturas antes del arrastre.")
+      throw SystemFailure.changed("Mission Control rebuilt its thumbnails before the drag.")
     }
     let visibleGrab = MissionControlTileGeometry.visibleFrame(rawGrab, centered: tree.centeredTiles)
     let freshGrab = CGPoint(x: visibleGrab.midX, y: tree.centeredTiles ? visibleGrab.midY : freshBar.midY)
     guard hypot(freshGrab.x - grab.x, freshGrab.y - grab.y) <= 2 else {
-      throw SystemFailure.changed("La miniatura cambió de posición antes del arrastre.")
+      throw SystemFailure.changed("The thumbnail changed position before the drag.")
     }
     try pointer.send(.mouseMoved, to: grab)
     try pointer.send(.leftMouseDown, to: grab)
@@ -165,7 +165,7 @@ extension MissionControlAccessibility {
       previous = target
       await dragPause(50_000_000)
     }
-    guard settled >= 7 else { throw SystemFailure.partial("La barra de destino no se estabilizó durante el arrastre. Se comprobará dónde quedó el escritorio.") }
+    guard settled >= 7 else { throw SystemFailure.partial("The destination bar did not stabilize during the drag. The desktop location will be checked.") }
     try pointer.send(.leftMouseUp, to: point)
     await dragPause(200_000_000)
   }
@@ -186,7 +186,7 @@ extension MissionControlAccessibility {
     guard lists.count == 1, let list = lists.first else { throw missionControlUnavailable() }
     let buttons = Self.children(list).filter { Self.attribute($0, kAXRoleAttribute) as? String == kAXButtonRole }
     guard buttons.count == display.spaces.count else {
-      throw SystemFailure.changed("El número de miniaturas de Mission Control no coincide con el inventario. No se arrastrará ninguna.")
+      throw SystemFailure.changed("The number of Mission Control thumbnails does not match the inventory. None will be dragged.")
     }
     return (list, buttons)
   }
@@ -203,7 +203,7 @@ extension MissionControlAccessibility {
       } else { previous = nil }
       await dragPause(40_000_000)
     }
-    throw SystemFailure.unavailable("La miniatura de origen no se expandió y estabilizó. No se ha agarrado el escritorio.")
+    throw SystemFailure.unavailable("The source thumbnail did not expand and stabilize. The desktop was not grabbed.")
   }
 
   private func tileExpanded(_ tile: AXUIElement, bar: AXUIElement, centered: Bool) -> Bool {

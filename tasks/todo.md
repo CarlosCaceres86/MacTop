@@ -1,127 +1,159 @@
-# MacTop · Tareas de implementación
+# MacTop · Implementation tasks
 
-El [plan del MVP](plan.md) recoge el alcance. La primera prueba de 0.1.0 en el MacBook detectó un fallo de restauración al reconectar.
+The [MVP plan](plan.md) defines the scope. The first 0.1.0 test on the MacBook found a restoration failure on reconnect.
 
-### Resultado del MacBook con macOS 26.6.2
+### Preparing to publish the code
 
-El usuario tenía tres escritorios numerados en el monitor externo. Al desconectarlo, observó que macOS trasladaba sus escritorios al portátil. Al reconectarlo, el externo presentaba un único escritorio y MacTop 0.1.0 no logró devolver las ventanas a sus destinos. Se desconoce cuántos escritorios quedaron en la pantalla integrada al terminar ese ciclo. La serie de diez ciclos queda pendiente para la versión corregida.
+MacTop's code is MIT licensed. The bundle includes that license and the four third-party notices. Before signing, the script removes the debug map containing build paths from the Swift executable.
 
-Con 0.1.1 el usuario comunicó que la restauración parecía funcionar. Con 0.1.2 observó una mejora apreciable en la velocidad y pidió evitar las aperturas repetidas de Mission Control.
+Before making the repository public, remove or replace the ZIP attached to `v0.1.8-beta.1`. The executable in that ZIP retains the local build path. The code and ZIPs are reviewed separately.
 
-### Reconexión automática de 0.1.8 (9)
+To publish a download, build from a clean checkout with a Developer ID Application certificate and a notarization profile configured in the keychain. Use the actual certificate and profile names in these commands.
 
-En el MacBook apareció el velo, quedaron escritorios o ventanas fuera de sitio y una restauración manual posterior completó la distribución. En 0.1.7 se reprodujeron en pruebas dos secuencias compatibles con esa observación.
+```sh
+SIGN_IDENTITY='Developer ID Application: Holder Name (TEAMID)' ./scripts/build-app.sh
+xcrun notarytool submit dist/MacTop-universal.zip --keychain-profile MacTop --wait
+```
 
-- Dos avisos de pantalla durante el primer arrastre interrumpían la devolución del lote. Ahora se contrasta la configuración física con la observada al reconectar. Si coinciden las pantallas y su geometría, continúa la misma sesión de Mission Control. Un cambio físico o una lectura incierta siguen interrumpiendo la operación.
-- Una ventana ausente del primer inventario podía reaparecer en la comprobación final sin recibir su movimiento. El coordinador aprovecha esa lectura y, si la ventana aún falta, admite hasta un segundo de espera adicional. Comprueba el movimiento antes de continuar y conserva el límite de un intento por ventana. Una ventana presente en varios escritorios queda pendiente sin añadir espera.
-- En el Mac Studio pasaron 168 pruebas. En la reconexión simulada regresaron los tres originales en orden, se conservó el escritorio adicional del externo y se colocó la ventana tardía. Con el único monitor físico se verificó la comprobación de identidad, geometría y tipo de pantalla. El usuario confirmó que la restauración funciona en el MacBook con macOS 26.6.2. Queda pendiente la serie de diez ciclos.
-- Se verificaron la firma local, las dos arquitecturas y la lectura del helper del ZIP de 0.1.8. SHA-256 `447a7c79b4acb0d264105993651fb4be75cd4debb64f82bd399f4dba40e6fe69`. [MacTop 0.1.8 · Beta 1](https://github.com/CarlosCaceres86/MacTop/releases/tag/v0.1.8-beta.1)
+When the submission shows `Accepted`, staple the ticket to the app, validate the signature, and create the ZIP for distribution.
 
-Para seguir el cambio en el código, el [coordinador](../Sources/MacTopApp/LayoutCoordinator.swift) gestiona los avisos y la espera, el [adaptador de macOS](../Sources/MacTopSystem/MacWindowSystem.swift) comprueba las pantallas físicas y las [pruebas de reconexión](../Tests/MacTopAppTests/LayoutCoordinatorTests.swift) reproducen los dos fallos.
+```sh
+xcrun stapler staple dist/MacTop.app
+xcrun stapler validate dist/MacTop.app
+codesign --verify --deep --strict dist/MacTop.app
+spctl --assess --type execute --verbose=2 dist/MacTop.app
+ditto -c -k --sequesterRsrc --keepParent dist/MacTop.app dist/MacTop-universal-notarized.zip
+```
 
-### Actualización del menú abierto de 0.1.7 (8)
+Check the ZIP on the MacBook with Accessibility enabled, including reconnecting a monitor with multiple desktops. [Apple notarization workflow](https://developer.apple.com/documentation/security/customizing-the-notarization-workflow)
 
-- Durante la detección, MacTop actualiza las filas del menú ya abierto cuando cambia el estado del coordinador. El nombre del perfil, los escritorios y el destino del botón Guardar se actualizan juntos. Una restauración parcial con cero ventanas movidas se omite tanto en el estado visible como en el recordatorio de la última restauración.
-- Con 0.1.6, el menú del Mac Studio seguía indicando que estaba comprobando la configuración después de 12 segundos. Con 0.1.7 se comprobó el cambio de estado en la misma ventana del menú. En una prueba AppKit con un inventario simulado de MacBook y monitor se mostraron las dos pantallas y los tres escritorios externos, y se habilitó el guardado en el perfil externo.
-- Pasaron 163 pruebas. Se verificaron el contenido y la firma del [ZIP universal de 0.1.7](../dist/MacTop-0.1.7-universal.zip). SHA-256 `de3ca764c1b062e6e6ae8008b934c2c0de2dab94f4e2e3487952179b80e8d574`.
+### MacBook result with macOS 26.6.2
 
-### Guardado e icono de 0.1.6 (7)
+The user had three numbered desktops on the external monitor. On disconnecting it, they observed macOS move its desktops to the laptop. On reconnecting it, the external monitor showed a single desktop and MacTop 0.1.0 failed to return the windows to their destinations. The number of desktops left on the built-in display at the end of that cycle is unknown. The ten-cycle series remains pending for the corrected version.
 
-- Se retiraron «Detalles del estado actual…» y «Último resultado…». La cabecera conserva el estado y un resumen breve. Guardar muestra el recuento de pendientes y conserva la confirmación previa para sustituir el perfil.
-- En una prueba se guardaron 201 ventanas, 200 con asignación pendiente. Se conservó el perfil completo y se publicó un resumen de una línea. La suite suma 161 pruebas.
-- En el Mac Studio con macOS 27.0.1 se verificó el icono verde en la fila de MacTop en Ajustes y en el aviso «Acerca de» de la app extraída. En dos aperturas independientes del aviso se comprobó el cierre con Escape y con Intro. El aspecto de la entrada de Accesibilidad en el MacBook con macOS 26.6.2 queda pendiente.
-- El [ZIP de 0.1.6](../dist/MacTop-0.1.6-universal.zip) contiene la app y el helper universales. Se verificaron la firma y el recurso de icono declarado. SHA-256 `6d2d27352b2e39bcb5f80658423f9519b2e54a7319b68fb5c79e92633e95ba17`.
+With 0.1.1 the user reported that restoration appeared to work. With 0.1.2 they observed a noticeable speed improvement and asked to avoid repeatedly opening Mission Control.
 
-### Solicitud de Accesibilidad de 0.1.5 (6)
+### Per-monitor profiles in 0.1.9 (10)
 
-- Si falta el permiso al iniciar MacTop, la app solicita el aviso nativo de macOS. Al salir de Ajustes del Sistema o abrir el menú, vuelve a comprobar el permiso y empieza a supervisar las pantallas. La acción para abrir Accesibilidad está en el menú principal mientras haga falta.
-- Pasaron 160 pruebas. Las dos nuevas ejercitan el inicio con permiso, el aviso descartado y la detección de una concesión simulada en la misma sesión. En el Mac Studio, una copia con identidad de prueba abrió el aviso real de macOS. Se comprobó que ofrecía abrir Ajustes y se descartó el aviso. La concesión desde Ajustes en el MacBook con 26.6.2 queda pendiente de verificación física.
-- Se abrió el menú de la app extraída del [ZIP de 0.1.5](../dist/MacTop-0.1.5-universal.zip) y se verificaron la firma, las dos arquitecturas y el helper. SHA-256 `4a5b300cc8df58c00f443cac8e74736a754e02f5c012bc467e9ecfc95124af87`.
+- The shared profile remains in `macbook.json`. Each external monitor has its layout and desktop record in two files with a suffix derived from its identifier. Restoration still checks the monitor identifier and the record's capture date.
+- If there is not yet a per-monitor file, MacTop reads the old one only when the saved identifier matches. Identities from the old record apply only to that capture. Saving a monitor's layout writes to its files and retains the legacy files so they remain available in 0.1.8.
+- 173 tests passed. They cover home → MacBook → office → MacBook → home, reading legacy data, isolated saving for the office, and the open menu with a new monitor. On the Mac Studio, macOS returned an empty name. The menu test confirms that the short identifier is shown in that case. Physical switching between both monitors on the MacBook remains to be verified.
+- The local signature, both architectures, macOS 26.4 minimum, and helper read from the [test ZIP](../dist/MacTop-0.1.9-universal.zip) were verified. SHA-256 `355cc7fdcc1b45a2ec6bcef5fa3864566833f260fb6991ce9229bd22539e147d`.
 
-### Velo, icono y menú de 0.1.4 (5)
+### Automatic reconnection in 0.1.8 (9)
 
-- La persona que usa el MacBook eligió el icono verde con el portátil y el monitor, el velo en ambas pantallas y un menú que omite la duración. El coordinador activa el velo al iniciar un movimiento y lo retira al terminar o al interrumpirse la restauración. El indicador de fase aparece una sola vez y da preferencia a la pantalla integrada. El menú reutiliza la lectura estable para identificar el destino de guardado y mostrar los escritorios numerados.
-- Pasaron 158 pruebas, 38 de Core, 57 de System y 63 de App. Cubren el guardado con un monitor distinto al que se confirmó, la conservación del último resultado, la restauración sin movimientos y las interrupciones durante la colocación o el cierre de Mission Control.
-- En el Mac Studio con macOS 27.0.1 y un monitor, una ventana de prueba recibió un clic real a través del velo. El indicador siguió visible al abrir Mission Control y las tres fases usaron el mismo panel. Al terminar, el velo desapareció y la aplicación que tenía el foco lo conservó. Queda por comprobar la cobertura de ambas pantallas durante el arrastre real de los tres escritorios del MacBook con macOS 26.6.2.
-- Se abrió el menú de la app extraída del [ZIP de 0.1.4](../dist/MacTop-0.1.4-universal.zip) y se comprobaron sus acciones mediante Accesibilidad. Se verificaron la firma ad hoc, las dos arquitecturas, el mínimo 26.4, la lectura del helper y los diez tamaños del icono. SHA-256 `897a66b474ada48aa9df48d30662bbf235ff102302431afb4bd2d50983da0c2b`.
+On the MacBook the overlay appeared, some desktops or windows were out of place, and a subsequent manual restoration completed the layout. In 0.1.7 tests reproduced two sequences consistent with that observation.
 
-### Sesión compartida de 0.1.3 (4)
+- Two display notifications during the first drag interrupted the batch return. The physical configuration is now compared with the one observed on reconnect. If the displays and geometry match, the same Mission Control session continues. A physical change or an uncertain read still interrupts the operation.
+- A window missing from the first inventory could reappear in the final check without receiving its move. The coordinator uses that read and, if the window is still missing, allows up to one additional second of waiting. It verifies the move before continuing and retains the limit of one attempt per window. A window present on multiple desktops remains pending without additional waiting.
+- 168 tests passed on the Mac Studio. In simulated reconnection the three originals returned in order, the external monitor's extra desktop was retained, and the late window was placed. With the only physical monitor, the display identity, geometry, and type checks were verified. The user confirmed restoration works on the MacBook with macOS 26.6.2. The ten-cycle series remains pending.
+- The local signature, both architectures, and helper read from the 0.1.8 ZIP were verified. SHA-256 `447a7c79b4acb0d264105993651fb4be75cd4debb64f82bd399f4dba40e6fe69`. [MacTop 0.1.8 · Beta 1](https://github.com/CarlosCaceres86/MacTop/releases/tag/v0.1.8-beta.1)
 
-- En el Mac Studio con macOS 27.0.1, la sesión abrió Mission Control una vez, comprobó que la vista seguía disponible entre tres traslados simulados y la cerró una vez al finalizar. Cada traslado llegó a su posición en el monitor externo simulado. El orden y el escritorio activo del monitor físico coincidieron antes y después.
-- En una segunda prueba se cerró la vista nativa entre gestos. MacTop detectó que había desaparecido y se detuvo antes del siguiente traslado simulado. Las pruebas automatizadas cubren también una vista inicialmente abierta por el usuario, la reapertura tras el cambio de escritorio activo, la combinación de creación y traslado, las cancelaciones y los errores de cierre.
-- La suite conjunta pasó las 140 pruebas, 38 de Core, 57 del adaptador de sistema y 45 del coordinador. Quedan por medir la duración y el número de aperturas durante una reconexión física con los tres escritorios del MacBook. La prueba local utilizó un único monitor.
-- Se extrajo el [ZIP de 0.1.3](../dist/MacTop-0.1.3-universal.zip) y se verificaron la firma ad hoc, las dos arquitecturas y el helper incluido. SHA-256 `3848c8c752a99db7b86a10924d420458b12ae5370415afffe30a76009cf505e4`.
+To follow the change in the code, the [coordinator](../Sources/MacTopApp/LayoutCoordinator.swift) handles notifications and waiting, the [macOS adapter](../Sources/MacTopSystem/MacWindowSystem.swift) checks physical displays, and the [reconnection tests](../Tests/MacTopAppTests/LayoutCoordinatorTests.swift) reproduce both failures.
 
-### Rendimiento de 0.1.2 (3)
+### Open menu updates in 0.1.7 (8)
 
-Durante la recuperación de los escritorios, MacTop lee la estructura de las pantallas y comprueba la identidad, el orden y el escritorio activo. Al llegar a la fase de ventanas, toma un inventario completo y confirma que las pantallas siguen coincidiendo. También se eliminó una espera después de que Foundation hubiera observado la terminación del helper. Se conservan las tres muestras de estabilidad y los tiempos del gesto nativo que funcionó en el MacBook.
+- During detection, MacTop updates rows in the already open menu when coordinator state changes. The profile name, desktops, and Save button destination update together. A partial restoration with zero windows moved is omitted from both the visible state and the last-restoration reminder.
+- With 0.1.6, the Mac Studio menu still said it was checking the configuration after 12 seconds. With 0.1.7 the state change was verified in the same menu window. An AppKit test with a simulated MacBook and monitor inventory showed both displays and the three external desktops, and enabled saving to the external profile.
+- 163 tests passed. The contents and signature of the [0.1.7 universal ZIP](../dist/MacTop-0.1.7-universal.zip) were verified. SHA-256 `de3ca764c1b062e6e6ae8008b934c2c0de2dab94f4e2e3487952179b80e8d574`.
 
-En la suite conjunta pasaron **116 pruebas** en el Mac Studio. Son 38 de Core, 38 del adaptador de sistema y 40 del coordinador. Las regresiones cubren un cambio de pantalla entre la lectura de escritorios y la captura completa, la cancelación, la protección de perfiles ante una captura parcial y la salida del proceso auxiliar, incluso si hay que terminarlo tras el plazo máximo.
+### Saving and icon in 0.1.6 (7)
 
-Se midieron cinco ejecuciones de distribución por variante, con el mismo helper. El coordinador devolvió tres escritorios identificados en dos pantallas simuladas y usó las pausas reales. Cada lectura consultó el adaptador real del Studio, que en ese momento veía un monitor, tres escritorios y 29 ventanas. La prueba excluyó el tiempo de detección del cable, las animaciones y el arrastre físico de Mission Control. Las ventanas del escenario ya estaban en su sitio.
+- “Current status details…” and “Last result…” were removed. The header retains the status and a short summary. Save shows the pending count and retains the confirmation before replacing a profile.
+- In one test, 201 windows were saved, 200 with pending assignments. The full profile was retained and a one-line summary published. The suite totals 161 tests.
+- On the Mac Studio with macOS 27.0.1 the green icon was verified in MacTop's Settings row and in the extracted app's About dialog. Closing with Escape and Return was checked in two separate openings of the dialog. The appearance of the Accessibility entry on the MacBook with macOS 26.6.2 remains pending.
+- The [0.1.6 ZIP](../dist/MacTop-0.1.6-universal.zip) contains the universal app and helper. The signature and declared icon resource were verified. SHA-256 `6d2d27352b2e39bcb5f80658423f9519b2e54a7319b68fb5c79e92633e95ba17`.
 
-| Variante | Mediana de la restauración | Inventarios completos de ventanas por ejecución |
+### Accessibility request in 0.1.5 (6)
+
+- If permission is missing when MacTop starts, the app requests the native macOS prompt. On leaving System Settings or opening the menu, it checks permission again and starts monitoring displays. The action to open Accessibility is in the main menu while needed.
+- 160 tests passed. The two new tests exercise startup with permission, a dismissed prompt, and detection of a simulated grant in the same session. On the Mac Studio, a copy with a test identity opened the real macOS prompt. It was verified to offer to open Settings, and the prompt was dismissed. Granting permission from Settings on the MacBook with 26.6.2 remains pending physical verification.
+- The menu of the app extracted from the [0.1.5 ZIP](../dist/MacTop-0.1.5-universal.zip) was opened, and its signature, both architectures, and helper were verified. SHA-256 `4a5b300cc8df58c00f443cac8e74736a754e02f5c012bc467e9ecfc95124af87`.
+
+### Overlay, icon, and menu in 0.1.4 (5)
+
+- The MacBook user chose the green icon with the laptop and monitor, an overlay on both displays, and a menu that omits duration. The coordinator activates the overlay when a move starts and removes it when restoration finishes or is interrupted. The phase indicator appears once and favors the built-in display. The menu reuses the stable read to identify the save destination and show numbered desktops.
+- 158 tests passed: 38 Core, 57 System, and 63 App. They cover saving with a different monitor from the one confirmed, retaining the last result, restoration without moves, and interruptions during placement or Mission Control closure.
+- On the Mac Studio with macOS 27.0.1 and one monitor, a test window received a real click through the overlay. The indicator remained visible when Mission Control opened, and all three phases used the same panel. When finished, the overlay disappeared and the app with focus retained it. Coverage of both displays during the actual drag of the MacBook's three desktops on macOS 26.6.2 remains to be checked.
+- The menu of the app extracted from the [0.1.4 ZIP](../dist/MacTop-0.1.4-universal.zip) was opened and its actions checked through Accessibility. Ad hoc signing, both architectures, the 26.4 minimum, the helper read, and all ten icon sizes were verified. SHA-256 `897a66b474ada48aa9df48d30662bbf235ff102302431afb4bd2d50983da0c2b`.
+
+### Shared session in 0.1.3 (4)
+
+- On the Mac Studio with macOS 27.0.1, the session opened Mission Control once, checked that the view remained available between three simulated moves, and closed it once at the end. Each move reached its position on the simulated external monitor. The order and active desktop on the physical monitor matched before and after.
+- In a second test the native view was closed between gestures. MacTop detected its disappearance and stopped before the next simulated move. Automated tests also cover a view initially opened by the user, reopening after changing the active desktop, combined creation and movement, cancellations, and closure errors.
+- The combined suite passed all 140 tests: 38 Core, 57 system adapter, and 45 coordinator. Duration and number of openings during a physical reconnection with the MacBook's three desktops remain to be measured. The local test used one monitor.
+- The [0.1.3 ZIP](../dist/MacTop-0.1.3-universal.zip) was extracted and its ad hoc signature, both architectures, and included helper were verified. SHA-256 `3848c8c752a99db7b86a10924d420458b12ae5370415afffe30a76009cf505e4`.
+
+### Performance in 0.1.2 (3)
+
+During desktop recovery, MacTop reads the display structure and checks identity, order, and the active desktop. On reaching the window phase, it takes a full inventory and confirms the displays still match. A wait after Foundation observed helper termination was also removed. The three stability samples and timing of the native gesture that worked on the MacBook remain.
+
+The combined suite passed **116 tests** on the Mac Studio: 38 Core, 38 system adapter, and 40 coordinator. Regression tests cover a display change between reading desktops and full capture, cancellation, profile protection during partial capture, and helper process exit, including when it must be terminated after the deadline.
+
+Five layout runs per variant were measured with the same helper. The coordinator returned three identified desktops across two simulated displays and used the real pauses. Each read queried the Studio's real adapter, which at the time saw one monitor, three desktops, and 29 windows. The test excluded cable detection time, animations, and physical dragging in Mission Control. The scenario's windows were already in place.
+
+| Variant | Median restoration time | Full window inventories per run |
 | --- | ---: | ---: |
-| 0.1.1 | 12,40 s | 25 |
-| Lectura de escritorios separada | 9,87 s | 2 |
-| 0.1.2 con la espera del helper corregida | 6,03 s | 2 |
+| 0.1.1 | 12.40 s | 25 |
+| Separate desktop read | 9.87 s | 2 |
+| 0.1.2 with helper wait corrected | 6.03 s | 2 |
 
-En 0.1.2 hubo además 24 consultas de escritorios por ejecución. Las lecturas consumieron en conjunto una mediana de 1,87 s, frente a 8,26 s en 0.1.1. La duración física en el MacBook se puede contrastar en el menú con **Última restauración**.
+In 0.1.2 there were also 24 desktop queries per run. Together the reads took a median of 1.87 s, versus 8.26 s in 0.1.1. Physical duration on the MacBook can be checked in the menu under **Last Restoration**.
 
-### Validación local de 0.1.1 (2) del 24 de noviembre de 2026
+### Local validation of 0.1.1 (2), November 24, 2026
 
-- Pasaron las 99 pruebas de la suite conjunta en el Mac Studio con macOS 27.0.1. Son 36 de Core, 31 del adaptador de sistema y 32 del coordinador. Cubren la reconexión con un único escritorio externo, el perfil de 0.1.0 que requiere crear dos destinos y la devolución de tres originales con una ventana abierta después de la captura.
-- En otra comprobación del planificador, 108 combinaciones de ubicación, orden, originales ausentes y escritorio externo adicional devolvieron los originales identificables a sus posiciones. Una segunda aplicación del plan requirió cero operaciones. Las dos pantallas de estas pruebas son simuladas.
-- La revisión independiente encontró dos fallos. Un ID numérico que reaparecía con un UUID distinto podía hacer que se trasladara otro escritorio y un aviso de despertar podía repetir un gesto incierto. Los tests reprodujeron ambos casos antes de la corrección. El UUID observado ahora debe coincidir, y tras un gesto incierto el perfil externo requiere un reintento explícito mientras MacTop siga abierto. El perfil portátil sigue disponible.
-- Con un único monitor real, Accesibilidad identificó el grupo de Mission Control correspondiente a la pantalla, sus tres miniaturas y el botón para añadir un escritorio. El helper de distribución leyó el escritorio activo y UUID válidos de dos de esos tres escritorios. Esta comprobación consistió en leer los controles. La creación y el arrastre físicos entre pantallas y la continuidad de las identidades tras reconectar quedan pendientes en el MacBook.
-- ZIP de distribución [MacTop-0.1.1-universal.zip](../dist/MacTop-0.1.1-universal.zip). Se extrajo y se verificaron las firmas locales, las cuatro licencias y los ejecutables arm64 y x86_64, con mínimo de macOS 26.4 en ambos. SHA-256 `50bd63d72d9e98a5f951608a966b1458c0fa7deec2423b5494bd79e95e456dcd`.
+- All 99 tests in the combined suite passed on the Mac Studio with macOS 27.0.1: 36 Core, 31 system adapter, and 32 coordinator. They cover reconnection with a single external desktop, the 0.1.0 profile requiring two destinations to be created, and returning three originals with a window opened after capture.
+- In another planner check, 108 combinations of location, order, missing originals, and an extra external desktop returned identifiable originals to their positions. Applying the plan a second time required zero operations. Both displays in these tests are simulated.
+- Independent review found two bugs. A numeric ID reappearing with a different UUID could move another desktop, and a wake notification could repeat an uncertain gesture. Tests reproduced both cases before the fix. The observed UUID must now match, and after an uncertain gesture the external profile requires an explicit retry while MacTop remains open. The laptop profile remains available.
+- With one real monitor, Accessibility identified the display's Mission Control group, its three thumbnails, and the button to add a desktop. The layout helper read the active desktop and valid UUIDs for two of those three desktops. This check consisted of reading controls. Physical creation and dragging between displays and identity continuity after reconnect remain pending on the MacBook.
+- Distribution ZIP: [MacTop-0.1.1-universal.zip](../dist/MacTop-0.1.1-universal.zip). It was extracted, and local signatures, the four licenses, and arm64 and x86_64 executables were verified, with a macOS 26.4 minimum for both. SHA-256 `50bd63d72d9e98a5f951608a966b1458c0fa7deec2423b5494bd79e95e456dcd`.
 
-### Evidencia local de 0.1.0 del 24 de noviembre de 2026
+### Local evidence for 0.1.0, November 24, 2026
 
-- En el Mac Studio con macOS 27.0.1 y SIP activo pasaron 40 pruebas, 16 del núcleo, 10 del adaptador y 14 del coordinador de la app.
-- Una ventana AppKit de prueba creada para esta validación pasó del escritorio activo a otro escritorio nativo y volvió. El adaptador de MacTop verificó el mismo proceso, identificador de ventana, pantalla física y pertenencia exclusiva en ambos extremos. Se repitió con los objetos de la compilación de distribución y su componente empaquetado. Accesibilidad confirmó que el editor conservó el texto sin guardar antes y después del recorrido. La prueba utilizó un solo monitor.
-- Se abrió la app empaquetada mediante LaunchServices y se comprobaron en su menú las dos acciones de guardado, la restauración manual, el automatismo y Accesibilidad. Se cerró la instancia de prueba al terminar.
-- El ZIP extraído pasó la verificación de firma con `codesign --verify --deep --strict`. La app y el componente de Spaces incluyen arm64 y x86_64, con mínimo de macOS 26.4 en ambas arquitecturas. SHA-256 del ZIP entregado: `d3728a1503996338c05d905bcac80adbec8fb2bb6c1c341d52b4dba830241e3f`.
-- El caso anterior falló en el MacBook a pesar de pasar estas comprobaciones en el Mac Studio. La [guía de prueba](../README.md) incluye la primera ida y vuelta y los diez ciclos de aceptación.
+- On the Mac Studio with macOS 27.0.1 and SIP enabled, 40 tests passed: 16 core, 10 adapter, and 14 app coordinator.
+- An AppKit test window created for this validation moved from the active desktop to another native desktop and back. MacTop's adapter verified the same process, window identifier, physical display, and exclusive membership at both ends. This was repeated with the distribution build objects and packaged component. Accessibility confirmed that the editor retained unsaved text before and after the round trip. The test used one monitor.
+- The packaged app was opened through LaunchServices, and its menu's two save actions, manual restoration, automation, and Accessibility were checked. The test instance was closed afterward.
+- The extracted ZIP passed signature verification with `codesign --verify --deep --strict`. The app and Spaces component include arm64 and x86_64, with a macOS 26.4 minimum on both architectures. SHA-256 of the delivered ZIP: `d3728a1503996338c05d905bcac80adbec8fb2bb6c1c341d52b4dba830241e3f`.
+- The preceding case failed on the MacBook despite passing these checks on the Mac Studio. The [test guide](../README.md) includes the first round trip and ten acceptance cycles.
 
-## 1. Comprobar el movimiento entre pantallas
+## 1. Check movement between displays
 
-- [ ] En el MacBook con macOS 26.6.2, identificar la ventana que ocupa cada uno de los tres escritorios numerados del externo e inventariar los Spaces de la pantalla integrada. Anotar qué conserva o cambia macOS al desconectar y al reconectar.
-- [ ] Probar `spacectl` v2.2.2 con SIP activo. Trasladar una ventana identificable entre la integrada y la externa y recuperarla tras la reconexión. Repetir con una ventana representativa de cada modo utilizado.
-- [ ] Contrastar pantalla y Space mediante una nueva lectura y Mission Control. Registrar si se conserva la ventana y su contenido. La autodetección del componente y su prueba entre dos escritorios de una sola pantalla son sólo comprobaciones preliminares.
+- [ ] On the MacBook with macOS 26.6.2, identify the window on each of the external monitor's three numbered desktops and inventory the built-in display's Spaces. Note what macOS retains or changes on disconnect and reconnect.
+- [ ] Test `spacectl` v2.2.2 with SIP enabled. Move an identifiable window between the built-in and external displays and recover it after reconnecting. Repeat with a representative window for each mode used.
+- [ ] Cross-check display and Space with a fresh read and Mission Control. Record whether the window and its contents are retained. Component self-detection and its test between two desktops on one display are only preliminary checks.
 
-**Resultado para continuar.** Mecanismo demostrado para las apps y los modos reales. Si faltan escritorios o hay que reconstruir el modo de una app, describir el caso y acordar el ajuste antes de construir sobre él.
+**Result required to continue.** A demonstrated mechanism for the real apps and modes. If desktops are missing or an app's mode must be reconstructed, describe the case and agree on the adjustment before building on it.
 
-## 2. Guardar los perfiles desde la barra de menús
+## 2. Save profiles from the menu bar
 
-Depende de 1. Afecta al menú, la captura y el archivo de perfiles.
+Depends on 1. Affects the menu, capture, and profile file.
 
-- [ ] Capturar por separado «MacBook» y «MacBook + monitor». Identificar el monitor y conservar la secuencia de Spaces y sus ventanas por pantalla.
-- [ ] Reiniciar la utilidad y recuperar los dos perfiles. Verificar que guardar uno sólo sustituye el elegido y que una escritura fallida conserva la copia válida.
-- [x] Probar lectura y escritura local y correspondencia de pantallas con su orden de enumeración invertido. Verificado con archivos temporales reales e inventario simulado.
+- [ ] Capture “MacBook” and “MacBook + monitor” separately. Identify the monitor and retain the sequence of Spaces and their windows per display.
+- [ ] Restart the utility and recover both profiles. Verify that saving one replaces only the selected one and that a failed write retains the valid copy.
+- [x] Test local reads and writes and display matching with reversed enumeration order. Verified with real temporary files and a simulated inventory.
 
-## 3. Restaurar por acción del usuario
+## 3. Restore on user action
 
-Depende de 2. Afecta a la comparación de perfiles, al componente de Spaces y al resultado mostrado en el menú.
+Depends on 2. Affects profile comparison, the Spaces component, and the result shown in the menu.
 
-- [ ] Restaurar las ventanas de ambos perfiles y los modos demostrados en 1. Verificar la ventana, el monitor y la posición en Mission Control de cada destino. Preservar las ventanas ajenas al perfil.
-- [x] Cubrir en pruebas una ventana ambigua, otra asignada a todos los escritorios, una app cerrada, un destino ausente y un fallo de movimiento. El coordinador conserva el perfil y muestra los diagnósticos.
-- [x] Repetir la restauración sobre un perfil correcto. En la prueba del coordinador el contador de movimientos queda a cero y los perfiles guardados permanecen intactos.
+- [ ] Restore the windows of both profiles and the modes demonstrated in 1. Verify the window, monitor, and Mission Control position for each destination. Preserve windows outside the profile.
+- [x] Test an ambiguous window, one assigned to all desktops, a closed app, a missing destination, and a move failure. The coordinator retains the profile and displays diagnostics.
+- [x] Repeat restoration on a correct profile. In the coordinator test the move count remains zero and saved profiles remain intact.
 
-**Antes de automatizar.** Completar al menos un recorrido manual de ida y vuelta con las ventanas reales. Incluir contenido de prueba sin guardar.
+**Before automating.** Complete at least one manual round trip with the real windows. Include unsaved test content.
 
-## 4. Activar el perfil al cambiar la configuración
+## 4. Activate the profile when the configuration changes
 
-Depende de 3. Afecta a los avisos de macOS y a la ejecución de la restauración.
+Depends on 3. Affects macOS notifications and restoration execution.
 
-- [x] Probar una ráfaga simulada de avisos. Sólo actúa la restauración correspondiente al estado final estable.
-- [ ] Desconectar mientras hay un movimiento en curso. Esperar su resultado, volver a leer el estado y verificar que los movimientos pendientes del perfil anterior se descartan.
-- [ ] Probar reposo y desbloqueo, monitor desconocido, falta de permisos y estado que no llega a estabilizarse. Comprobar que la app espera o explica el resultado y que los perfiles se conservan.
+- [x] Test a simulated burst of notifications. Only the restoration corresponding to the final stable state acts.
+- [ ] Disconnect while a move is in progress. Wait for its result, read the state again, and verify that pending moves from the previous profile are discarded.
+- [ ] Test sleep and unlock, an unknown monitor, missing permissions, and a state that never stabilizes. Check that the app waits or explains the result and that profiles are retained.
 
-## 5. Aceptar el MVP en el MacBook
+## 5. Accept the MVP on the MacBook
 
-Depende de 4. Afecta a la validación y su registro.
+Depends on 4. Affects validation and its record.
 
-- [ ] Ejecutar la compilación y las pruebas del proyecto. Anotar la versión de MacTop, macOS, el monitor y las apps usados en la prueba física.
-- [ ] Hacer diez ciclos completos. Por cada extremo, registrar destinos esperados y observados, orden, modo, continuidad de las ventanas y cualquier intervención manual. Incluir reposo y reconexión rápida.
-- [ ] Confirmar veinte distribuciones correctas, cero cierres o relanzados y cero correcciones manuales. Un fallo se documenta con su secuencia y se reproduce tras corregirlo. La versión final debe superar la serie completa.
+- [ ] Run the project build and tests. Record the MacTop and macOS versions, monitor, and apps used in the physical test.
+- [ ] Complete ten full cycles. For each end, record expected and observed destinations, order, mode, window continuity, and any manual intervention. Include sleep and rapid reconnection.
+- [ ] Confirm twenty correct layouts, zero closures or relaunches, and zero manual corrections. Document any failure and its sequence and reproduce it after fixing it. The final version must pass the full series.

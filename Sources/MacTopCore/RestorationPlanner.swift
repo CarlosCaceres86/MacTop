@@ -6,14 +6,14 @@ public enum PendingReason: String, Codable, Sendable {
 
     public var message: String {
         switch self {
-        case .unverifiedWindow: return "No se ha comprobado la identidad o el acceso a la ventana."
-        case .nonExclusiveMembership: return "La ventana no pertenece exclusivamente a un escritorio."
-        case .unsupportedSpaceKind: return "El modo de pantalla completa o Split View requiere validación física."
-        case .geometryUnverified: return "La posición física no coincide con una única pantalla del inventario."
-        case .destinationMissing: return "Falta la pantalla o el escritorio de destino."
-        case .applicationClosed: return "La aplicación está cerrada o no tiene ventanas disponibles."
-        case .ambiguousWindow: return "Hay varias ventanas posibles; no se ha elegido ninguna."
-        case .windowUnavailable: return "La ventana guardada ya no está disponible en esta instancia de la aplicación."
+        case .unverifiedWindow: return "The window identity or access has not been verified."
+        case .nonExclusiveMembership: return "The window does not belong exclusively to one desktop."
+        case .unsupportedSpaceKind: return "Full screen or Split View requires physical validation."
+        case .geometryUnverified: return "The physical position does not match exactly one display in the inventory."
+        case .destinationMissing: return "The destination display or desktop is missing."
+        case .applicationClosed: return "The application is closed or has no available windows."
+        case .ambiguousWindow: return "Multiple windows match; none was selected."
+        case .windowUnavailable: return "The saved window is no longer available in this application instance."
         }
     }
 }
@@ -65,7 +65,7 @@ public enum RestorationPlanner {
             try profile.validate()
             try snapshot.validate()
             guard try snapshot.topology() == profile.topology else {
-                return RestorationPlan(moves: [], pending: [], alreadyCorrect: 0, issues: ["La configuración de pantallas no coincide con el perfil."])
+                return RestorationPlan(moves: [], pending: [], alreadyCorrect: 0, issues: ["The display configuration does not match the profile."])
             }
         } catch {
             return RestorationPlan(moves: [], pending: [], alreadyCorrect: 0, issues: [error.localizedDescription] + snapshot.issues)
@@ -74,12 +74,12 @@ public enum RestorationPlanner {
         var issues = snapshot.issues
         for savedDisplay in profile.displays {
             guard let current = snapshot.display(for: savedDisplay.role) else {
-                issues.append("Falta una pantalla guardada.")
+                issues.append("A saved display is missing.")
                 continue
             }
             for (index, kind) in savedDisplay.spaces.enumerated() {
                 if !current.spaces.indices.contains(index) || current.spaces[index].kind != kind {
-                    issues.append("Falta el escritorio \(index + 1) de tipo \(kind.rawValue) en \(current.id).")
+                    issues.append("Desktop \(index + 1) of type \(kind.rawValue) is missing on \(current.id).")
                 }
             }
         }

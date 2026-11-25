@@ -13,7 +13,7 @@ enum WindowMoveExecution {
     let before = try await snapshot()
     try validate(before, expected)
     guard let original = before.windows.first(where: { $0.identity == move.identity }) else {
-      throw SystemFailure.changed("La ventana original ya no existe.")
+      throw SystemFailure.changed("The original window no longer exists.")
     }
     let sourceDisplay = physicalDisplay(for: original.frame, in: before.displays)
     try Task.checkCancellation()
@@ -22,7 +22,7 @@ enum WindowMoveExecution {
     var after = try await snapshot()
     try validateAfter(after, before: before, validate: validate)
     guard let window = after.windows.first(where: { $0.identity == move.identity }) else {
-      throw SystemFailure.partial("No se pudo observar la misma ventana después del movimiento.")
+      throw SystemFailure.partial("Could not observe the same window after the move.")
     }
     if window.spaceIDs != [move.spaceID] {
       guard let sourceDisplay, sourceDisplay != move.displayID else {
@@ -47,7 +47,7 @@ enum WindowMoveExecution {
       physicalDisplay(for: observed.frame, in: after.displays) == move.displayID
     else {
       throw SystemFailure.partial(
-        "El movimiento quedó parcial: no coinciden la misma ventana, la pantalla física y el escritorio previstos."
+        "The move was partial: the window, physical display, and desktop do not match the intended destination."
       )
     }
   }
@@ -58,7 +58,7 @@ enum WindowMoveExecution {
   ) throws {
     do { try validate(current, before) } catch {
       throw SystemFailure.partial(
-        "La identidad, los permisos o la configuración cambiaron durante el movimiento. Se ha detenido la restauración; revisa el resultado."
+        "The identity, permissions, or configuration changed during the move. Restoration has stopped; check the result."
       )
     }
   }
@@ -66,7 +66,7 @@ enum WindowMoveExecution {
   private static func membershipFailure(_ reply: HelperReply) -> SystemFailure {
     .partial(
       reply.timedOut
-        ? "El componente agotó el tiempo de espera; la ventana no está verificada en el destino."
-        : "La ventana no llegó exclusivamente al escritorio previsto.")
+        ? "The component timed out; the window has not been verified at the destination."
+        : "The window did not reach the intended desktop exclusively.")
   }
 }

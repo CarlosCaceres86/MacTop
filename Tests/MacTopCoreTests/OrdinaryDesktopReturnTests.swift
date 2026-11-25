@@ -148,7 +148,8 @@ final class OrdinaryDesktopReturnTests: XCTestCase {
         XCTAssertEqual(try store.loadExternalDesktopRegistry(profile: profile), registry)
         let newer = LayoutProfile(capturedAt: profile.capturedAt.addingTimeInterval(1), topology: profile.topology, displays: profile.displays, windows: profile.windows)
         XCTAssertNil(try store.loadExternalDesktopRegistry(profile: newer))
-        try Data("broken".utf8).write(to: directory.appendingPathComponent("external-desktop-identities.json"))
+        let registryURL = try XCTUnwrap(FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil).first)
+        try Data("broken".utf8).write(to: registryURL)
         XCTAssertThrowsError(try store.loadExternalDesktopRegistry(profile: profile))
     }
 

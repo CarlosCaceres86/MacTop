@@ -31,7 +31,7 @@ func missionControlDisplayIndex(
 }
 
 func missionControlUnavailable() -> SystemFailure {
-  .unavailable("No se pudo identificar inequívocamente la pantalla o los controles de Mission Control.")
+  .unavailable("Could not uniquely identify the display or Mission Control controls.")
 }
 
 func missionControlReady(displayCount: Int, expectedCount: Int, addButtonCounts: [Int]) -> Bool {
@@ -57,7 +57,7 @@ final class MissionControlAccessibility {
         if isReady(displayCount: displayCount) { return false }
         await Self.pause()
       }
-      throw SystemFailure.unavailable("Mission Control ya estaba abierto, pero sus pantallas no están listas.")
+      throw SystemFailure.unavailable("Mission Control was already open, but its displays are not ready.")
     }
     try Task.checkCancellation()
     let configuration = NSWorkspace.OpenConfiguration()
@@ -76,13 +76,13 @@ final class MissionControlAccessibility {
     }
     // Opening may have completed late; close only the UI that this call requested.
     try? await close()
-    throw SystemFailure.unavailable("Mission Control no mostró los grupos de las pantallas a tiempo.")
+    throw SystemFailure.unavailable("Mission Control did not show the display groups in time.")
   }
 
   func requireOpen(displayCount: Int) async throws {
     for _ in 0..<30 {
       guard isPresent else {
-        throw SystemFailure.changed("Mission Control se cerró durante la recuperación. No se volverá a abrir.")
+        throw SystemFailure.changed("Mission Control closed during recovery. It will not be reopened.")
       }
       if isReady(displayCount: displayCount) { return }
       try Task.checkCancellation()
@@ -101,7 +101,7 @@ final class MissionControlAccessibility {
       if !isPresent { return }
       await Self.pause()
     }
-    throw SystemFailure.partial("No se pudo comprobar el cierre de Mission Control.")
+    throw SystemFailure.partial("Could not verify that Mission Control closed.")
   }
 
   func pressAdd(displayID: String, expected: DesktopSnapshot) throws {
@@ -128,7 +128,7 @@ final class MissionControlAccessibility {
     try Task.checkCancellation()
     let status = AXUIElementPerformAction(button, kAXPressAction as CFString)
     guard status == .success else {
-      throw SystemFailure.partial("Mission Control devolvió un error al pulsar «+» (\(status.rawValue)). Se comprobará el resultado sin repetir el clic.")
+      throw SystemFailure.partial("Mission Control returned an error when clicking “+” (\(status.rawValue)). The result will be checked without repeating the click.")
     }
   }
 

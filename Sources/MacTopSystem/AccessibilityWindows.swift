@@ -36,7 +36,7 @@ extension MacWindowSystem {
         let accessible = hasPermission ? accessibleWindows(pid: pid) : nil
         let applicationIssue =
           app.bundleIdentifier == nil || app.launchDate == nil
-          ? "No se pudo verificar la instancia de la aplicación." : nil
+          ? "Could not verify the application instance." : nil
         let process = ProcessIdentity(pid: pid, launchDate: app.launchDate ?? .distantPast)
         let bundleIdentifier = app.bundleIdentifier ?? ""
         let windowIDs = Set(raw.filter { $0.pid == pid }.map(\.id))
@@ -65,7 +65,7 @@ extension MacWindowSystem {
                 process: process, windowID: window.id, bundleIdentifier: bundleIdentifier),
               title: "", frame: WindowFrame(.zero), spaceIDs: [],
               verificationIssue: applicationIssue
-                ?? "WindowServer no pudo verificar la pertenencia de esta ventana a un escritorio.")
+                ?? "WindowServer could not verify this window’s desktop membership.")
           )
         }
       }
@@ -81,17 +81,17 @@ extension MacWindowSystem {
       let windows = accessibleWindows(pid: move.identity.process.pid)
     else {
       throw SystemFailure.partial(
-        "No se pudo verificar la misma ventana para colocarla en la pantalla de destino.")
+        "Could not verify the same window for placement on the destination display.")
     }
     let matches = windows.filter { $0.id == move.identity.windowID && $0.isStandard == true }
     guard matches.count == 1 else {
       throw SystemFailure.partial(
-        "La identidad AX no es única; no se han cambiado las coordenadas.")
+        "The AX identity is not unique; coordinates were not changed.")
     }
     let element = matches[0].element
     let target = destination.frame.rect.insetBy(dx: 24, dy: 48)
     guard target.width > 0, target.height > 0 else {
-      throw SystemFailure.partial("La geometría de destino no es válida.")
+      throw SystemFailure.partial("The destination geometry is invalid.")
     }
     let width = min(window.frame.width, target.width)
     let height = min(window.frame.height, target.height)
@@ -101,7 +101,7 @@ extension MacWindowSystem {
         AXUIElementSetAttributeValue(element, kAXSizeAttribute as CFString, value) == .success
       else {
         throw SystemFailure.partial(
-          "La ventana llegó al escritorio, pero la aplicación no permite ajustarla a la pantalla.")
+          "The window reached the desktop, but the application does not allow resizing it to the display.")
       }
     }
     var point = CGPoint(x: target.minX, y: target.minY)
@@ -109,7 +109,7 @@ extension MacWindowSystem {
       AXUIElementSetAttributeValue(element, kAXPositionAttribute as CFString, value) == .success
     else {
       throw SystemFailure.partial(
-        "La ventana llegó al escritorio, pero la aplicación no permite colocarla físicamente en la pantalla."
+        "The window reached the desktop, but the application does not allow positioning it physically on the display."
       )
     }
   }
@@ -156,13 +156,13 @@ func inventoryIssue(
   spaceIDs: [UInt64], ordinarySpaceIDs: Set<UInt64>, frame: WindowFrame
 ) -> String? {
   if let applicationIssue { return applicationIssue }
-  guard hasPermission else { return "Falta permiso de Accesibilidad para verificar el inventario." }
-  guard frame.isValid else { return "La geometría de la ventana no está verificada." }
+  guard hasPermission else { return "Accessibility permission is required to verify the inventory." }
+  guard frame.isValid else { return "The window geometry is not verified." }
   guard matchedAXKinds.count <= 1, matchedAXKinds.first.map({ $0 == true }) ?? true else {
-    return "La identidad AX o el tipo de ventana ordinaria no está verificado."
+    return "The AX identity or ordinary window type is not verified."
   }
   guard spaceIDs.count == 1, let space = spaceIDs.first, ordinarySpaceIDs.contains(space) else {
-    return "La ventana no pertenece exclusivamente a un escritorio ordinario verificado."
+    return "The window does not belong exclusively to a verified ordinary desktop."
   }
   return nil
 }

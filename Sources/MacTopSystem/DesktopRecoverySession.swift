@@ -58,7 +58,7 @@ package final class DesktopRecoverySession {
 
   package func finish() async throws {
     guard !operating else {
-      throw SystemFailure.unavailable("Espera al final de la operación antes de cerrar la sesión de recuperación.")
+      throw SystemFailure.unavailable("Wait for the operation to finish before closing the recovery session.")
     }
     guard !finished else { return }
     finished = true
@@ -67,7 +67,7 @@ package final class DesktopRecoverySession {
 
   private func startOperation() throws {
     guard !finished, !operating else {
-      throw SystemFailure.unavailable("La sesión de recuperación terminó o ya tiene una operación en curso.")
+      throw SystemFailure.unavailable("The recovery session has ended or already has an operation in progress.")
     }
     try begin()
     operating = true
