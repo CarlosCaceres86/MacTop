@@ -1,8 +1,10 @@
 /* Menu and alerts */
 "%@ · %@ · ID %@" = "%@ · %@ · ID %@";
+"%@ · External only" = "%@ · Solo pantallas externas";
 "%lld desktop" = "%lld escritorio";
 "%lld desktops" = "%lld escritorios";
-"1 display · %@" = "1 pantalla · %@";
+"%lld displays" = "%lld pantallas";
+"1 display" = "1 pantalla";
 "2 displays" = "2 pantallas";
 "About MacTop…" = "Acerca de MacTop…";
 "Allow Accessibility" = "Permitir Accesibilidad";
@@ -25,14 +27,14 @@
 "Quit MacTop" = "Salir de MacTop";
 "Reopen the menu and check the detected profile before saving." = "Vuelve a abrir el menú y comprueba el perfil detectado antes de guardar.";
 "Restore Now" = "Restaurar ahora";
-"Restore your open windows to their saved desktops.\n\nSave a MacBook profile and one profile for each external monitor you use. Try Restore Now before enabling automatic restoration.\n\nOnly saving a layout replaces a profile. Your apps and documents stay open. Profiles are stored locally.\n\nUses SpacePigeon 2.2.2 and other MIT-licensed components. See Contents/Resources/ThirdParty for notices. The target test system is macOS 26.6.2." = "Devuelve las ventanas abiertas a sus escritorios guardados.\n\nGuarda un perfil para el MacBook y otro para cada monitor externo que uses. Prueba Restaurar ahora antes de activar la restauración automática.\n\nUn perfil se sustituye al guardar una distribución. Tus aplicaciones y documentos siguen abiertos. Los perfiles se guardan en este Mac.\n\nMacTop usa SpacePigeon 2.2.2 y otros componentes con licencia MIT. Consulta los avisos en Contents/Resources/ThirdParty. El sistema de referencia para las pruebas es macOS 26.6.2.";
+"Restore your open windows to their saved desktops.\n\nSave a profile for each display setup you use. Opening or closing the lid can change the detected setup. Try Restore Now before enabling automatic restoration.\n\nOnly saving a layout replaces a profile. Your apps and documents stay open. Profiles are stored locally.\n\nUses SpacePigeon 2.2.2 and other MIT-licensed components. See Contents/Resources/ThirdParty for notices. The target test system is macOS 26.6.2." = "Devuelve las ventanas abiertas a sus escritorios guardados.\n\nGuarda un perfil para cada configuración de pantallas que uses. Al abrir o cerrar la tapa puede cambiar la configuración detectada. Prueba Restaurar ahora antes de activar la restauración automática.\n\nUn perfil se sustituye al guardar una distribución. Tus aplicaciones y documentos siguen abiertos. Los perfiles se guardan en este Mac.\n\nMacTop usa SpacePigeon 2.2.2 y otros componentes con licencia MIT. Consulta los avisos en Contents/Resources/ThirdParty. El sistema de referencia para las pruebas es macOS 26.6.2.";
 "Save Layout" = "Guardar distribución";
 "Save Layout for %@…" = "Guardar distribución para %@…";
 "Save This Layout…" = "Guardar esta distribución…";
 "Save for %@" = "Guardar para %@";
 "The display setup changed" = "Ha cambiado la configuración de pantallas";
 "This saves the current layout and replaces any existing profile for this display setup." = "Se guardará la distribución actual y se sustituirá el perfil que ya exista para estas pantallas.";
-"This saves the current layout as a new profile for this monitor." = "Se guardará la distribución actual en un perfil nuevo para este monitor.";
+"This saves the current layout as a new profile for this display setup." = "Se guardará la distribución actual en un perfil nuevo para estas pantallas.";
 "development build" = "versión de desarrollo";
 
 /* Restoration overlay */
@@ -59,13 +61,13 @@
 "Connect the external monitor before saving that profile." = "Conecta el monitor externo antes de guardar ese perfil.";
 "Could not verify the desktop order. Use Restore Now to retry." = "Usa Restaurar ahora para reintentar. No se ha podido verificar el orden de los escritorios.";
 "Could not verify the desktop return. MacTop stopped before creating duplicates or moving its windows separately." = "No se ha podido verificar que el escritorio haya vuelto. MacTop se ha detenido para evitar duplicados o movimientos de ventanas por separado.";
-"Creating desktop %lld on the external monitor…" = "Creando el escritorio %lld en el monitor externo…";
+"Creating a desktop on %@…" = "Creando un escritorio en %@…";
 "Desktop creation is unavailable." = "No se pueden crear escritorios.";
 "Desktop recovery is unavailable." = "No se pueden recuperar los escritorios.";
 "Disconnect the external monitor before saving the MacBook profile." = "Desconecta el monitor externo antes de guardar el perfil del MacBook.";
 "Display setup unchanged" = "La configuración de pantallas sigue igual";
-"Kept %lld extra desktop on the external monitor." = "Se ha conservado %lld escritorio adicional en el monitor externo.";
-"Kept %lld extra desktops on the external monitor." = "Se han conservado %lld escritorios adicionales en el monitor externo.";
+"Kept %lld extra desktop." = "Se ha conservado %lld escritorio adicional.";
+"Kept %lld extra desktops." = "Se han conservado %lld escritorios adicionales.";
 "Layout saved · %@ · %lld pending" = "Distribución guardada · %@ · %lld pendientes";
 "MacTop could not verify the previous desktop operation. Check the layout before retrying." = "Comprueba la distribución antes de reintentar. MacTop no pudo verificar la operación anterior.";
 "Manual retry required · Restore Now" = "Usa Restaurar ahora para reintentar";
@@ -79,7 +81,7 @@
 "Restoration interrupted. You can try again." = "Restauración interrumpida. Puedes volver a intentarlo.";
 "Restored" = "Distribución restaurada";
 "Restoring window %lld of %lld…" = "Restaurando la ventana %lld de %lld…";
-"Returning desktop %lld to the external monitor…" = "Devolviendo el escritorio %lld al monitor externo…";
+"Returning desktop %lld to %@…" = "Devolviendo el escritorio %lld a %@…";
 "The click did not create a desktop. MacTop will wait for a manual retry." = "No se ha creado un escritorio. MacTop esperará a que reintentes manualmente.";
 "The display or desktop inventory is still incomplete." = "Aún falta información sobre las pantallas o los escritorios.";
 "The display setup changed after desktop recovery. MacTop canceled the remaining window moves." = "Las pantallas han cambiado tras recuperar los escritorios. MacTop ha cancelado los movimientos de ventanas pendientes.";
@@ -87,12 +89,18 @@
 "The display setup changed. Try again once the displays are stable." = "Ha cambiado la configuración de pantallas. Reintenta cuando se estabilicen.";
 "The displays or desktops did not stabilize." = "Las pantallas o los escritorios no se han estabilizado.";
 "The displays or desktops did not stabilize. %@ Try again once the display has finished connecting." = "Reintenta cuando la pantalla termine de conectarse. Las pantallas o los escritorios no se han estabilizado. %@";
-"This monitor has no saved profile yet." = "Este monitor todavía no tiene un perfil guardado.";
+"This display setup has no saved profile yet." = "Estas pantallas todavía no tienen un perfil guardado.";
 "Use Restore Now to retry manually." = "Usa Restaurar ahora para reintentar manualmente.";
 "Waiting for displays and desktops to stabilize…" = "Esperando a que se estabilicen las pantallas y los escritorios…";
 "Waiting for the session to become available" = "Esperando a que la sesión esté disponible";
 
 /* Technical details shown in restoration messages */
+"A display with full-screen or Split View spaces no longer matches its saved destinations. Restore its desktop sequence manually before retrying." = "Una pantalla con espacios a pantalla completa o en Split View tiene una distribución distinta de la guardada. Restablece manualmente el orden de sus escritorios antes de reintentar.";
+"Added an empty desktop so the original can be returned safely." = "Se ha añadido un escritorio vacío para poder devolver el original de forma segura.";
+"An identified destination is no longer an ordinary desktop." = "Uno de los destinos identificados ha dejado de ser un escritorio normal.";
+"Keep an ordinary desktop on the source display and make room on the destination before retrying." = "Conserva un escritorio normal en la pantalla de origen y haz sitio en la de destino antes de reintentar.";
+"Recovery requires matching registries for every display in this topology." = "La recuperación requiere un registro válido para cada pantalla de esta configuración.";
+"Two saved destinations claim the same desktop identity." = "Dos destinos guardados se atribuyen la identidad del mismo escritorio.";
 "A move is already in progress." = "Ya hay un movimiento en curso.";
 "A restoration is already in progress." = "Ya hay una restauración en curso.";
 "A saved display is missing." = "Falta una pantalla guardada.";
@@ -135,7 +143,7 @@
 "The AX identity or ordinary window type is not verified." = "No se ha verificado la identidad AX o el tipo de ventana normal.";
 "The active desktop changed before the thumbnail was grabbed." = "El escritorio activo ha cambiado antes de seleccionar la miniatura.";
 "The application is closed or has no available windows." = "La aplicación está cerrada o no tiene ventanas disponibles.";
-"The built-in display and, optionally, one identified external monitor are required." = "Se necesita la pantalla integrada y, opcionalmente, un monitor externo identificado.";
+"The active displays must have unique identities and at most one built-in display." = "Las pantallas activas deben tener identidades únicas y puede haber como máximo una pantalla integrada.";
 "The component timed out; the window has not been verified at the destination." = "El componente ha agotado el tiempo de espera; no se ha verificado que la ventana esté en el destino.";
 "The created desktop UUID is duplicated." = "El UUID del escritorio creado está duplicado.";
 "The desktop became active before the drag; recovery has stopped." = "El escritorio se ha activado antes del arrastre; se ha detenido la recuperación.";
@@ -149,6 +157,7 @@
 "The destination bar did not stabilize during the drag. The desktop location will be checked." = "La barra de destino no se ha estabilizado durante el arrastre. Se comprobará la ubicación del escritorio.";
 "The destination display or desktop changed. The restoration must be recalculated." = "La pantalla o el escritorio de destino han cambiado. Es necesario recalcular la restauración.";
 "The destination display or desktop is missing." = "Falta la pantalla o el escritorio de destino.";
+"The destination display could not be verified." = "No se ha podido verificar la pantalla de destino.";
 "The destination geometry is invalid." = "La geometría del destino no es válida.";
 "The display configuration does not match the profile." = "La configuración de pantallas no coincide con el perfil.";
 "The external monitor already has 16 desktops; another cannot be returned without removing one." = "El monitor externo ya tiene 16 escritorios; no se puede devolver otro sin eliminar uno.";
@@ -173,8 +182,10 @@
 "The registry contains an inconsistent desktop identity." = "El registro contiene una identidad de escritorio incoherente.";
 "The registry contains duplicate desktop identities." = "El registro contiene identidades de escritorio duplicadas.";
 "The registry requires an external profile." = "El registro requiere un perfil externo.";
+"The registry does not identify a saved display." = "El registro no identifica ninguna pantalla guardada.";
 "The return changed desktops other than the intended one; recovery has stopped." = "La devolución ha cambiado otros escritorios además del previsto; se ha detenido la recuperación.";
 "The saved monitor has no identity." = "El monitor guardado no tiene identidad.";
+"The saved display topology is invalid." = "La configuración de pantallas guardada no es válida.";
 "The saved window is no longer available in this application instance." = "La ventana guardada ya no está disponible en esta instancia de la aplicación.";
 "The snapshot changed before its desktops were registered." = "La captura ha cambiado antes de registrar sus escritorios.";
 "The source thumbnail did not expand and stabilize. The desktop was not grabbed." = "La miniatura de origen no se ha expandido y estabilizado. No se ha seleccionado el escritorio.";
@@ -196,4 +207,4 @@
 "full screen" = "pantalla completa";
 "ordinary" = "normal";
 "unknown" = "desconocido";
-"“+” was clicked, but a single new desktop on the external monitor could not be verified. The click will not be repeated." = "Se ha hecho clic en «+», pero no se ha podido verificar que haya un único escritorio nuevo en el monitor externo. No se repetirá el clic.";
+"“+” was clicked, but a single new desktop on the target display could not be verified. The click will not be repeated." = "Se ha hecho clic en «+», pero no se ha podido verificar que haya un único escritorio nuevo en la pantalla de destino. No se repetirá el clic.";

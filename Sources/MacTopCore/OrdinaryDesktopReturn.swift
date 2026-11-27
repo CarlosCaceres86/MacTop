@@ -19,22 +19,43 @@ public struct ExternalDesktopRegistry: Codable, Equatable, Sendable {
     public let capturedAt: Date
     public private(set) var slots: [ExternalDesktopIdentity]
 
+    public var role: DisplayRole { displayID.isEmpty ? .builtIn : .external(id: displayID) }
+
     public init(profile: LayoutProfile) throws {
-        try profile.validate()
-        guard case let .external(id) = profile.topology,
-              let display = profile.displays.first(where: { $0.role == .external(id: id) }) else {
+        guard case let .external(id) = profile.topology else {
             throw MacTopCoreError.invalidProfile(String(localized: "The registry requires an external profile."))
         }
-        displayID = id; capturedAt = profile.capturedAt
+        try self.init(profile: profile, role: .external(id: id))
+    }
+
+    public init(profile: LayoutProfile, role: DisplayRole) throws {
+        try profile.validate()
+        guard let display = profile.displays.first(where: { $0.role == role }) else {
+            throw MacTopCoreError.invalidProfile(String(localized: "The registry does not identify a saved display."))
+        }
+        switch role {
+        case .builtIn: displayID = ""
+        case let .external(id): displayID = id
+        }
+        capturedAt = profile.capturedAt
         slots = display.spaces.indices.map { ExternalDesktopIdentity(stableUUID: display.spaceUUIDs?[$0]) }
     }
 
     /// Only explicit "Save this layout" may seed live IDs by the observed ordinal.
     public init(profile: LayoutProfile, snapshot: DesktopSnapshot, sessionID: UUID) throws {
         try self.init(profile: profile)
+        try seed(profile: profile, snapshot: snapshot, sessionID: sessionID)
+    }
+
+    public init(profile: LayoutProfile, role: DisplayRole, snapshot: DesktopSnapshot, sessionID: UUID) throws {
+        try self.init(profile: profile, role: role)
+        try seed(profile: profile, snapshot: snapshot, sessionID: sessionID)
+    }
+
+    private mutating func seed(profile: LayoutProfile, snapshot: DesktopSnapshot, sessionID: UUID) throws {
         let captured = try LayoutProfile.capture(snapshot: snapshot)
         guard captured.topology == profile.topology, captured.displays == profile.displays,
-              let display = snapshot.displays.first(where: { $0.id == displayID && !$0.isBuiltIn }) else {
+              let display = snapshot.display(for: role) else {
             throw MacTopCoreError.invalidSnapshot(String(localized: "The snapshot changed before its desktops were registered."))
         }
         for index in slots.indices {
@@ -45,15 +66,14 @@ public struct ExternalDesktopRegistry: Codable, Equatable, Sendable {
     }
 
     public func matches(profile: LayoutProfile) -> Bool {
-        guard case let .external(id) = profile.topology,
-              let saved = profile.displays.first(where: { $0.role == .external(id: id) }) else { return false }
-        return displayID == id && capturedAt == profile.capturedAt && slots.count == saved.spaces.count
+        guard let saved = profile.displays.first(where: { $0.role == role }) else { return false }
+        return capturedAt == profile.capturedAt && slots.count == saved.spaces.count
     }
 
     func validate(profile: LayoutProfile) throws {
         try profile.validate()
         guard matches(profile: profile),
-              let saved = profile.displays.first(where: { $0.role == .external(id: displayID) }) else {
+              let saved = profile.displays.first(where: { $0.role == role }) else {
             throw MacTopCoreError.invalidProfile(String(localized: "The desktop registry does not match this snapshot and monitor."))
         }
         var identities = Set<UUID>()
@@ -73,9 +93,9 @@ public struct ExternalDesktopRegistry: Codable, Equatable, Sendable {
 
     /// Records only the newly appended Space after an exact, verified addition.
     public mutating func recordCreated(before: DesktopSnapshot, after: DesktopSnapshot, slot: Int, sessionID: UUID) throws {
-        guard slots.indices.contains(slot),
-              try OrdinaryDesktopAddition.isVerified(before: before, after: after, displayID: displayID),
-              let space = after.displays.first(where: { $0.id == displayID })?.spaces.last else {
+        guard slots.indices.contains(slot), let liveDisplayID = before.display(for: role)?.id,
+              try OrdinaryDesktopAddition.isVerified(before: before, after: after, displayID: liveDisplayID),
+              let space = after.displays.first(where: { $0.id == liveDisplayID })?.spaces.last else {
             throw MacTopCoreError.invalidSnapshot(String(localized: "Could not register the created desktop."))
         }
         let previous = slots[slot]
@@ -117,68 +137,128 @@ public struct OrdinaryDesktopReturnStep: Equatable, Sendable {
 
 public enum ExternalDesktopRecoveryStep: Equatable, Sendable {
     case move(OrdinaryDesktopReturnStep)
-    case create(slot: Int, reason: String)
+    case create(displayID: String, slot: Int?, reason: String)
     case ready
 }
 
 public enum OrdinaryDesktopReturn {
+    private struct Destination {
+        let display: DisplaySnapshot
+        let saved: SavedDisplay
+        let registry: ExternalDesktopRegistry
+    }
+    private struct Located {
+        let display: DisplaySnapshot
+        let space: SpaceSnapshot
+    }
+
     public static func nextStep(profile: LayoutProfile, snapshot: DesktopSnapshot, registry: ExternalDesktopRegistry, sessionID: UUID) throws -> ExternalDesktopRecoveryStep {
-        let (saved, external) = try context(profile: profile, snapshot: snapshot, registry: registry)
-        guard saved.spaces.allSatisfy({ $0 == .ordinary }), external.spaces.allSatisfy({ $0.kind == .ordinary }) else { return .ready }
-        let resolved = try saved.spaces.indices.map { try resolve(slot: $0, saved: saved, snapshot: snapshot, registry: registry, sessionID: sessionID) }
-        let knownIDs = resolved.compactMap { $0?.space.id }
-        guard Set(knownIDs).count == knownIDs.count else { throw changed(String(localized: "Two destinations point to the same desktop.")) }
-        for slot in saved.spaces.indices {
-            guard let original = resolved[slot] else { continue }
-            if original.display.id == external.id, external.spaces.firstIndex(where: { $0.id == original.space.id }) == slot { continue }
-            guard original.space.kind == .ordinary,
-                  original.display.isBuiltIn || original.display.id == external.id,
-                  !original.display.isBuiltIn || original.display.spaces.filter({ $0.kind == .ordinary }).count > 1 else {
-                throw changed(String(localized: "The desktop cannot be returned while retaining an ordinary desktop on the built-in display."))
+        try plan(profile: profile, snapshot: snapshot, registries: [registry], sessionID: sessionID, complete: false)
+    }
+
+    public static func nextStep(profile: LayoutProfile, snapshot: DesktopSnapshot, registries: [ExternalDesktopRegistry], sessionID: UUID) throws -> ExternalDesktopRecoveryStep {
+        try plan(profile: profile, snapshot: snapshot, registries: registries, sessionID: sessionID, complete: true)
+    }
+
+    private static func plan(profile: LayoutProfile, snapshot: DesktopSnapshot, registries: [ExternalDesktopRegistry], sessionID: UUID, complete: Bool) throws -> ExternalDesktopRecoveryStep {
+        let destinations = try context(profile: profile, snapshot: snapshot, registries: registries, complete: complete)
+        let (resolved, reserved) = try resolve(destinations: destinations, profile: profile, snapshot: snapshot, sessionID: sessionID)
+        var blocked: [OrdinaryDesktopReturnStep] = []
+        var unsupported = false
+        var missing: [(display: DisplaySnapshot, slot: Int)] = []
+        for (index, destination) in destinations.enumerated() {
+            let target = destination.display
+            // Mixed Mission Control sequences retain their existing ordinal semantics.
+            guard destination.saved.spaces.allSatisfy({ $0 == .ordinary }), target.spaces.allSatisfy({ $0.kind == .ordinary }) else {
+                if destination.saved.spaces != target.spaces.map(\.kind) || destination.saved.spaces.indices.contains(where: { slot in
+                    guard let known = resolved[index][slot] else { return false }
+                    return known.display.id != target.id || target.spaces[slot].id != known.space.id
+                }) { unsupported = true }
+                continue
             }
-            // Return known Spaces first; missing capacity is filled after their identities are safe.
-            if original.display.id == external.id && slot >= external.spaces.count { continue }
-            guard !original.display.isBuiltIn || external.spaces.count < OrdinaryDesktopAddition.maximumOrdinaryDesktops else {
-                throw changed(String(localized: "The external monitor already has 16 desktops; another cannot be returned without removing one."))
+            var available = target.spaces.filter { !reserved.contains($0.id) }.makeIterator()
+            for slot in destination.saved.spaces.indices {
+                let location: Located?
+                if let known = resolved[index][slot] { location = known }
+                else { location = available.next().map { Located(display: target, space: $0) } }
+                guard let location else { missing.append((target, slot)); continue }
+                let source = location.display
+                let insertionCount = target.spaces.count - (source.id == target.id ? 1 : 0)
+                let targetIndex = min(slot, insertionCount)
+                if source.id == target.id, target.spaces.firstIndex(where: { $0.id == location.space.id }) == targetIndex { continue }
+                guard location.space.kind == .ordinary else { throw changed(String(localized: "An identified destination is no longer an ordinary desktop.")) }
+                let step = OrdinaryDesktopReturnStep(spaceID: location.space.id, stableUUID: location.space.stableUUID,
+                    sourceDisplayID: source.id, targetDisplayID: target.id, targetIndex: targetIndex, slot: slot)
+                if source.id == target.id || (source.spaces.allSatisfy({ $0.kind == .ordinary }) && source.spaces.count > 1 && target.spaces.count < OrdinaryDesktopAddition.maximumOrdinaryDesktops) {
+                    return .move(step)
+                }
+                blocked.append(step)
             }
-            return .move(.init(spaceID: original.space.id, stableUUID: original.space.stableUUID, sourceDisplayID: original.display.id,
-                               targetDisplayID: external.id, targetIndex: min(slot, external.spaces.count), slot: slot))
         }
-        if try OrdinaryDesktopAddition.missingCount(profile: profile, snapshot: snapshot) > 0 {
-            let unknownSlots = saved.spaces.indices.filter { resolved[$0] == nil }
-            let available = external.spaces.filter { !knownIDs.contains($0.id) }.count
-            guard unknownSlots.indices.contains(available) else { throw changed() }
-            return .create(slot: unknownSlots[available], reason: String(localized: "No available original desktop has been identified for this destination; the missing desktop will be created."))
+        guard !unsupported else {
+            throw changed(String(localized: "A display with full-screen or Split View spaces no longer matches its saved destinations. Restore its desktop sequence manually before retrying."))
+        }
+        // Creating a genuinely missing destination can also release a sole-desktop source.
+        for item in missing where item.display.spaces.count < OrdinaryDesktopAddition.maximumOrdinaryDesktops {
+            return .create(displayID: item.display.id, slot: item.slot, reason: String(localized: "No available original desktop has been identified for this destination; the missing desktop will be created."))
+        }
+        if complete {
+            for step in blocked {
+                guard let source = snapshot.displays.first(where: { $0.id == step.sourceDisplayID }),
+                      let target = snapshot.displays.first(where: { $0.id == step.targetDisplayID }), source.id != target.id,
+                      source.spaces.allSatisfy({ $0.kind == .ordinary }), source.spaces.count == 1,
+                      target.spaces.count < OrdinaryDesktopAddition.maximumOrdinaryDesktops,
+                      source.spaces.filter({ $0.kind == .ordinary }).count < OrdinaryDesktopAddition.maximumOrdinaryDesktops else { continue }
+                return .create(displayID: source.id, slot: nil, reason: String(localized: "Added an empty desktop so the original can be returned safely."))
+            }
+        }
+        guard blocked.isEmpty && missing.isEmpty else {
+            throw changed(String(localized: "Keep an ordinary desktop on the source display and make room on the destination before retrying."))
         }
         return .ready
     }
 
     public static func identityIssues(profile: LayoutProfile, snapshot: DesktopSnapshot, registry: ExternalDesktopRegistry, sessionID: UUID) throws -> [String] {
-        let (saved, _) = try context(profile: profile, snapshot: snapshot, registry: registry)
+        try issues(profile: profile, snapshot: snapshot, registries: [registry], sessionID: sessionID, complete: false)
+    }
+
+    public static func identityIssues(profile: LayoutProfile, snapshot: DesktopSnapshot, registries: [ExternalDesktopRegistry], sessionID: UUID) throws -> [String] {
+        try issues(profile: profile, snapshot: snapshot, registries: registries, sessionID: sessionID, complete: true)
+    }
+
+    private static func issues(profile: LayoutProfile, snapshot: DesktopSnapshot, registries: [ExternalDesktopRegistry], sessionID: UUID, complete: Bool) throws -> [String] {
+        let destinations = try context(profile: profile, snapshot: snapshot, registries: registries, complete: complete)
+        _ = try resolve(destinations: destinations, profile: profile, snapshot: snapshot, sessionID: sessionID)
         let observed = Set(snapshot.displays.flatMap(\.spaces).compactMap(\.stableUUID))
-        return saved.spaces.indices.compactMap { slot in
-            guard let uuid = saved.spaceUUIDs?[slot] ?? registry.slots[slot].stableUUID ?? registry.slots[slot].createdUUID, !observed.contains(uuid) else { return nil }
-            return String(localized: "The original UUID for desktop \(slot + 1) is missing; the available ordinary destination will be used without deleting its saved identity.")
+        return destinations.flatMap { destination in
+            destination.saved.spaces.indices.compactMap { slot -> String? in
+                guard let uuid = destination.registry.slots[slot].stableUUID ?? destination.registry.slots[slot].createdUUID,
+                      !observed.contains(uuid) else { return nil }
+                return String(localized: "The original UUID for desktop \(slot + 1) is missing; the available ordinary destination will be used without deleting its saved identity.")
+            }
         }
     }
 
     public static func extraDesktopCount(profile: LayoutProfile, snapshot: DesktopSnapshot) throws -> Int {
-        let (saved, external) = try context(profile: profile, snapshot: snapshot, registry: ExternalDesktopRegistry(profile: profile))
-        return max(0, external.spaces.count - saved.spaces.count)
+        try profile.validate(); try validateDisplays(snapshot)
+        guard try snapshot.topology() == profile.topology else { throw changed() }
+        return profile.displays.reduce(0) { total, saved in
+            // Keep the legacy external-only note for a single-external profile.
+            if case .external = profile.topology, saved.role == .builtIn { return total }
+            return total + max(0, (snapshot.display(for: saved.role)?.spaces.count ?? 0) - saved.spaces.count)
+        }
     }
 
     /// False is an unchanged inventory. Every partial move or unrelated change throws.
     public static func isVerified(before: DesktopSnapshot, after: DesktopSnapshot, step: OrdinaryDesktopReturnStep) throws -> Bool {
         try validateDisplays(before); try validateDisplays(after)
-        guard try before.topology() == .external(displayID: step.targetDisplayID), try before.topology() == after.topology(),
+        guard try before.topology() == after.topology(),
               let source = before.displays.first(where: { $0.id == step.sourceDisplayID }),
-              let target = before.displays.first(where: { $0.id == step.targetDisplayID && !$0.isBuiltIn }),
+              let target = before.displays.first(where: { $0.id == step.targetDisplayID }),
               target.spaces.allSatisfy({ $0.kind == .ordinary }),
               let moving = source.spaces.first(where: { $0.id == step.spaceID && $0.kind == .ordinary }),
               step.stableUUID == nil || step.stableUUID == moving.stableUUID,
-              source.isBuiltIn || source.id == target.id,
-              !source.isBuiltIn || target.spaces.count < OrdinaryDesktopAddition.maximumOrdinaryDesktops,
-              !source.isBuiltIn || source.spaces.filter({ $0.kind == .ordinary }).count > 1 else { throw changed() }
+              source.id == target.id || (target.spaces.count < OrdinaryDesktopAddition.maximumOrdinaryDesktops && source.spaces.filter({ $0.kind == .ordinary }).count > 1) else { throw changed() }
         let insertionCount = target.spaces.count - (source.id == target.id ? 1 : 0)
         guard step.targetIndex >= 0, step.targetIndex <= insertionCount else { throw changed() }
         var expected = before.displays.map(\.spaces)
@@ -199,31 +279,60 @@ public enum OrdinaryDesktopReturn {
         return true
     }
 
-    private static func context(profile: LayoutProfile, snapshot: DesktopSnapshot, registry: ExternalDesktopRegistry) throws -> (SavedDisplay, DisplaySnapshot) {
-        try profile.validate(); try registry.validate(profile: profile); try validateDisplays(snapshot)
-        guard registry.matches(profile: profile), try snapshot.topology() == profile.topology,
-              let saved = profile.displays.first(where: { $0.role == .external(id: registry.displayID) }),
-              let external = snapshot.displays.first(where: { $0.id == registry.displayID && !$0.isBuiltIn }) else {
-            throw changed(String(localized: "The desktop registry does not match this snapshot and monitor."))
+    private static func context(profile: LayoutProfile, snapshot: DesktopSnapshot, registries: [ExternalDesktopRegistry], complete: Bool) throws -> [Destination] {
+        try profile.validate(); try validateDisplays(snapshot)
+        guard try snapshot.topology() == profile.topology,
+              !registries.isEmpty,
+              !complete || (registries.count == profile.displays.count && profile.displays.allSatisfy { saved in registries.filter { $0.role == saved.role }.count == 1 }) else {
+            throw changed(String(localized: "Recovery requires matching registries for every display in this topology."))
         }
-        return (saved, external)
+        return try registries.map { registry in
+            try registry.validate(profile: profile)
+            guard let saved = profile.displays.first(where: { $0.role == registry.role }),
+                  let live = snapshot.display(for: registry.role) else { throw changed() }
+            guard !saved.spaces.allSatisfy({ $0 == .ordinary }) || saved.spaces.count <= OrdinaryDesktopAddition.maximumOrdinaryDesktops else {
+                throw MacTopCoreError.invalidProfile(String(localized: "The profile exceeds the limit of 16 ordinary desktops per display; none was created."))
+            }
+            return Destination(display: live, saved: saved, registry: registry)
+        }
     }
 
-    private static func resolve(slot: Int, saved: SavedDisplay, snapshot: DesktopSnapshot, registry: ExternalDesktopRegistry, sessionID: UUID) throws -> (display: DisplaySnapshot, space: SpaceSnapshot)? {
-        let evidence = registry.slots[slot]
-        let identities = [saved.spaceUUIDs?[slot], evidence.stableUUID, evidence.createdUUID].compactMap { $0 }
-        for uuid in identities {
-            for display in snapshot.displays {
-                if let space = display.spaces.first(where: { $0.stableUUID == uuid }) { return (display, space) }
+    private static func resolve(destinations: [Destination], profile: LayoutProfile, snapshot: DesktopSnapshot, sessionID: UUID) throws -> ([[Located?]], Set<UInt64>) {
+        let live = snapshot.displays.flatMap { display in display.spaces.map { Located(display: display, space: $0) } }
+        var result = destinations.map { Array<Located?>(repeating: nil, count: $0.saved.spaces.count) }
+        var reserved = Set<UInt64>()
+        let originals = Set(profile.displays.flatMap { $0.spaceUUIDs?.compactMap { $0 } ?? [] })
+        // Originals on every role are reserved even when the legacy caller plans only one display.
+        for location in live where location.space.stableUUID.map({ originals.contains($0) }) == true { reserved.insert(location.space.id) }
+        var claims = Set<UInt64>()
+        for tier in 0...2 {
+            var tierClaims = Set<UInt64>()
+            for (displayIndex, destination) in destinations.enumerated() {
+                for slot in destination.saved.spaces.indices {
+                    let evidence = destination.registry.slots[slot]
+                    let location: Located?
+                    switch tier {
+                    case 0: location = evidence.stableUUID.flatMap { uuid in live.first { $0.space.stableUUID == uuid } }
+                    case 1: location = evidence.createdUUID.flatMap { uuid in live.first { $0.space.stableUUID == uuid && !originals.contains(uuid) } }
+                    default:
+                        if evidence.sessionID == sessionID, let id = evidence.sessionSpaceID, let candidate = live.first(where: { $0.space.id == id }) {
+                            location = candidate.space.stableUUID == evidence.sessionSpaceUUID ? candidate : nil
+                        } else { location = nil }
+                    }
+                    guard let location else { continue }
+                    reserved.insert(location.space.id)
+                    if tier > 0 && claims.contains(location.space.id) { continue }
+                    guard tierClaims.insert(location.space.id).inserted else {
+                        throw changed(String(localized: "Two saved destinations claim the same desktop identity."))
+                    }
+                    if result[displayIndex][slot] == nil {
+                        result[displayIndex][slot] = location
+                    }
+                }
             }
+            claims.formUnion(tierClaims)
         }
-        if evidence.sessionID == sessionID, let id = evidence.sessionSpaceID {
-            for display in snapshot.displays {
-                if let space = display.spaces.first(where: { $0.id == id }),
-                   evidence.sessionSpaceUUID == space.stableUUID { return (display, space) }
-            }
-        }
-        return nil
+        return (result, reserved)
     }
 
     private static func validateDisplays(_ snapshot: DesktopSnapshot) throws {

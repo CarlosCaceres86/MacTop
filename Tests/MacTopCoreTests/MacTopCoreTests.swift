@@ -168,11 +168,78 @@ final class MacTopCoreTests: XCTestCase {
 
     func testUnsupportedTopologyAndDuplicateInventoryAreRejected() throws {
         let externalOnly = DesktopSnapshot(displays: [DisplaySnapshot(id: "external", isBuiltIn: false, frame: externalFrame, spaces: [SpaceSnapshot(id: 10, kind: .ordinary)])], windows: [])
-        XCTAssertThrowsError(try externalOnly.topology())
-        XCTAssertThrowsError(try LayoutProfile.capture(snapshot: externalOnly))
+        XCTAssertEqual(try externalOnly.topology(), .extended(builtIn: false, externalDisplayIDs: ["external"]))
+        XCTAssertNoThrow(try LayoutProfile.capture(snapshot: externalOnly))
         XCTAssertThrowsError(try LayoutProfile.capture(snapshot: snapshot(windows: [window(), window()])))
         let duplicateSpace = snapshot(externalSpaces: [SpaceSnapshot(id: 1, kind: .ordinary)])
         XCTAssertThrowsError(try LayoutProfile.capture(snapshot: duplicateSpace))
+    }
+
+    func testExactDisplaySetsAndCanonicalValidation() throws {
+        let base = snapshot()
+        let b = DisplaySnapshot(id: "monitor-B", isBuiltIn: false, frame: externalFrame, spaces: [.init(id: 20, kind: .ordinary)])
+        let c = DisplaySnapshot(id: "monitor-C", isBuiltIn: false, frame: externalFrame, spaces: [.init(id: 30, kind: .ordinary)])
+        let displays = base.displays + [b, c]
+        let open = DesktopSnapshot(displays: displays, windows: [])
+        let reverse = DesktopSnapshot(displays: displays.reversed(), windows: [])
+        let closed = DesktopSnapshot(displays: Array(displays.dropFirst()), windows: [])
+        let openTopology = try open.topology()
+        XCTAssertEqual(openTopology, .extended(builtIn: true, externalDisplayIDs: ["monitor-A", "monitor-B", "monitor-C"]))
+        XCTAssertEqual(try reverse.topology(), openTopology)
+        XCTAssertNotEqual(try closed.topology(), openTopology)
+        XCTAssertEqual(openTopology.displayRoles, [.builtIn, .external(id: "monitor-A"), .external(id: "monitor-B"), .external(id: "monitor-C")])
+        XCTAssertTrue(openTopology.hasExternalDisplays)
+        XCTAssertFalse(ProfileTopology.portable.hasExternalDisplays)
+        XCTAssertNoThrow(try LayoutProfile.capture(snapshot: closed))
+        XCTAssertThrowsError(try DesktopSnapshot(displays: [], windows: []).topology())
+        XCTAssertThrowsError(try DesktopSnapshot(displays: [base.displays[0], base.displays[0]], windows: []).topology())
+        let ambiguous = DisplaySnapshot(id: "MONITOR-A", isBuiltIn: false, frame: externalFrame, spaces: [.init(id: 40, kind: .ordinary)])
+        XCTAssertThrowsError(try DesktopSnapshot(displays: base.displays + [ambiguous], windows: []).topology())
+        let invalid: [ProfileTopology] = [.extended(builtIn: true, externalDisplayIDs: ["monitor-A"]),
+            .extended(builtIn: false, externalDisplayIDs: []),
+            .extended(builtIn: false, externalDisplayIDs: ["monitor-B", "monitor-A"]),
+            .extended(builtIn: false, externalDisplayIDs: ["monitor-A", "MONITOR-A"])]
+        for topology in invalid {
+            XCTAssertThrowsError(try LayoutProfile(topology: topology, displays: [], windows: []).validate())
+        }
+    }
+
+    func testExtendedProfilesAndDesktopRegistriesAreIndependent() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = ProfileStore(directory: directory)
+        let original = try LayoutProfile.capture(snapshot: snapshot())
+        try store.save(original)
+        let originalRegistry = try ExternalDesktopRegistry(profile: original)
+        try store.saveExternalDesktopRegistry(originalRegistry, profile: original)
+        let oldFiles = try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
+        let oldBytes = try oldFiles.map { try Data(contentsOf: $0) }
+        let extra = DisplaySnapshot(id: "monitor-B", isBuiltIn: false, frame: externalFrame, spaces: [.init(id: 20, kind: .ordinary)])
+        let other = DisplaySnapshot(id: "monitor-C", isBuiltIn: false, frame: externalFrame, spaces: [.init(id: 30, kind: .ordinary)])
+        let open = try LayoutProfile.capture(snapshot: DesktopSnapshot(displays: snapshot().displays + [extra], windows: []))
+        let closed = try LayoutProfile.capture(snapshot: DesktopSnapshot(displays: Array(snapshot().displays.dropFirst()) + [extra], windows: []))
+        let sameCount = try LayoutProfile.capture(snapshot: DesktopSnapshot(displays: snapshot().displays + [other], windows: []))
+        for profile in [open, closed, sameCount] { try store.save(profile) }
+        let builtInRegistry = try ExternalDesktopRegistry(profile: open, role: .builtIn)
+        let firstRegistry = try ExternalDesktopRegistry(profile: open, role: .external(id: "monitor-A"))
+        let secondRegistry = try ExternalDesktopRegistry(profile: open, role: .external(id: "monitor-B"))
+        for registry in [builtInRegistry, firstRegistry, secondRegistry] { try store.saveDesktopRegistry(registry, profile: open) }
+        XCTAssertEqual(try store.load(open.topology), open)
+        XCTAssertEqual(try store.load(closed.topology), closed)
+        XCTAssertEqual(try store.load(sameCount.topology), sameCount)
+        XCTAssertEqual(try store.loadDesktopRegistry(profile: open, role: .builtIn), builtInRegistry)
+        XCTAssertEqual(try store.loadDesktopRegistry(profile: open, role: .external(id: "monitor-A")), firstRegistry)
+        XCTAssertEqual(try store.loadDesktopRegistry(profile: open, role: .external(id: "monitor-B")), secondRegistry)
+        XCTAssertNil(try store.loadDesktopRegistry(profile: closed, role: .external(id: "monitor-A")))
+        XCTAssertNil(try store.loadDesktopRegistry(profile: original, role: .builtIn))
+        XCTAssertEqual(try store.loadExternalDesktopRegistry(profile: original), originalRegistry)
+        for (url, bytes) in zip(oldFiles, oldBytes) { XCTAssertEqual(try Data(contentsOf: url), bytes) }
+        let originalBuiltIn = try ExternalDesktopRegistry(profile: original, role: .builtIn)
+        try store.saveDesktopRegistry(originalBuiltIn, profile: original)
+        XCTAssertEqual(try store.loadDesktopRegistry(profile: original, role: .builtIn), originalBuiltIn)
+        XCTAssertEqual(try store.loadDesktopRegistry(profile: open, role: .builtIn), builtInRegistry)
+        let newCapture = LayoutProfile(capturedAt: open.capturedAt.addingTimeInterval(1), topology: open.topology, displays: open.displays, windows: open.windows)
+        XCTAssertNil(try store.loadDesktopRegistry(profile: newCapture, role: .builtIn))
     }
 
     func testStorePersistsIndependentMonitorProfilesAndRegistries() throws {

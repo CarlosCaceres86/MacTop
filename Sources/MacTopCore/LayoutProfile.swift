@@ -75,13 +75,10 @@ public struct LayoutProfile: Codable, Equatable, Sendable {
 
     func validate() throws {
         guard schemaVersion == 1 else { throw MacTopCoreError.invalidProfile(String(localized: "Unsupported profile version.")) }
-        let expectedRoles: [DisplayRole]
-        switch topology {
-        case .portable: expectedRoles = [.builtIn]
-        case let .external(id):
-            guard !id.isEmpty else { throw MacTopCoreError.invalidProfile(String(localized: "The saved monitor has no identity.")) }
-            expectedRoles = [.builtIn, .external(id: id)]
+        guard topology.isCanonical else {
+            throw MacTopCoreError.invalidProfile(String(localized: "The saved display topology is invalid."))
         }
+        let expectedRoles = topology.displayRoles
         guard displays.count == expectedRoles.count,
               expectedRoles.allSatisfy({ role in displays.filter { $0.role == role }.count == 1 }),
               displays.allSatisfy({ !$0.spaces.isEmpty && !$0.spaces.contains(.unknown) }),

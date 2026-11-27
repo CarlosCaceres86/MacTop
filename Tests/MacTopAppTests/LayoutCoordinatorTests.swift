@@ -245,6 +245,18 @@ final class LayoutCoordinatorTests: XCTestCase {
         XCTAssertTrue(menu.item(withTitle: "Save Layout for DELL U2723QE…") === save)
         XCTAssertEqual(save.representedObject as? ProfileTopology, .external(displayID: "monitor"))
         XCTAssertTrue(save.isEnabled)
+
+        let external = try XCTUnwrap(rig.current.displays.first { !$0.isBuiltIn })
+        let other = DisplaySnapshot(id: "second", isBuiltIn: false, frame: .init(x: -1000, y: 0, width: 1000, height: 800),
+            spaces: [.init(id: 21, kind: .ordinary)], localizedName: external.localizedName)
+        rig.current = DesktopSnapshot(displays: [other, external], windows: [])
+        coordinator.receive(.screensChanged)
+        await coordinator.waitUntilIdle()
+
+        XCTAssertEqual(profile.title, "DELL U2723QE (onitor) + DELL U2723QE (second) · External only")
+        XCTAssertEqual(profile.subtitle, "2 displays · 4 desktops · No saved profile")
+        XCTAssertEqual(save.representedObject as? ProfileTopology, .extended(builtIn: false, externalDisplayIDs: ["monitor", "second"]))
+        XCTAssertTrue(save.isEnabled)
     }
 
     func testPartialRestoreWithZeroMovesIsAbsentFromCurrentAndPreviousMenuMessages() async throws {
@@ -386,12 +398,12 @@ final class LayoutCoordinatorTests: XCTestCase {
         let migrated = Rig.originalDesktops(migrated: true)
         rig.current = DesktopSnapshot(displays: migrated.displays.map { display in
             DisplaySnapshot(id: display.id, isBuiltIn: display.isBuiltIn, frame: display.frame,
-                spaces: display.isBuiltIn ? display.spaces.filter { $0.id == 10 || $0.id == 11 } : display.spaces)
+                spaces: display.isBuiltIn ? display.spaces : (100..<115).map { SpaceSnapshot(id: UInt64($0), kind: .ordinary) })
         }, windows: migrated.windows)
         let coordinator = rig.coordinator(automatic: true)
         coordinator.start()
         await coordinator.waitUntilIdle()
-        XCTAssertEqual(rig.placements.count, 1, "The second return would leave no ordinary desktop on the built-in display")
+        XCTAssertEqual(rig.placements.count, 1, "The first return filled the target display to capacity")
         XCTAssertEqual(rig.finishCount, 1)
         XCTAssertEqual(rig.fullReadCount, 0)
         XCTAssertFalse(coordinator.status.contains("Restore Now"))
@@ -733,6 +745,97 @@ final class LayoutCoordinatorTests: XCTestCase {
         XCTAssertEqual(try store.load(.external(displayID: "office")), officeProfile)
         XCTAssertEqual(try store.loadExternalDesktopRegistry(profile: homeProfile), homeRegistry)
         XCTAssertEqual(try store.loadExternalDesktopRegistry(profile: officeProfile), officeRegistry)
+    }
+
+    func testOpeningAndClosingLidRestoresTheExactSavedConfiguration() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let rig = Rig()
+        let store = ProfileStore(directory: directory)
+        rig.store = store
+        let laptop = SpaceSnapshot(id: 1, kind: .ordinary, stableUUID: UUID())
+        let first = SpaceSnapshot(id: 10, kind: .ordinary, stableUUID: UUID())
+        let second = SpaceSnapshot(id: 20, kind: .ordinary, stableUUID: UUID())
+        let spare = SpaceSnapshot(id: 100, kind: .ordinary)
+        let window = Rig.snapshot().windows[0]
+
+        func display(_ id: String, x: Double, _ spaces: [SpaceSnapshot], builtIn: Bool = false) -> DisplaySnapshot {
+            DisplaySnapshot(id: id, isBuiltIn: builtIn, frame: .init(x: x, y: 0, width: 1000, height: 800), spaces: spaces)
+        }
+        func snapshot(_ displays: [DisplaySnapshot], windowOn space: SpaceSnapshot, x: Double) -> DesktopSnapshot {
+            DesktopSnapshot(displays: displays, windows: [WindowSnapshot(identity: window.identity, title: window.title,
+                frame: .init(x: x + 20, y: 20, width: 100, height: 100), spaceIDs: [space.id])])
+        }
+
+        let builtIn = display("builtin", x: 0, [laptop], builtIn: true)
+        let a = display("A", x: 1000, [first])
+        let b = display("B", x: 2000, [second])
+        let open = snapshot([builtIn, a, b], windowOn: laptop, x: 0)
+        let closed = snapshot([b, a], windowOn: second, x: 2000)
+        let coordinator = rig.coordinator(automatic: true)
+        for configuration in [open, closed] {
+            rig.current = configuration
+            coordinator.saveCurrent(external: true)
+            await coordinator.waitUntilIdle()
+        }
+        let openProfile = try XCTUnwrap(store.load(open.topology()))
+        let closedProfile = try XCTUnwrap(store.load(closed.topology()))
+        XCTAssertNotEqual(openProfile.topology, closedProfile.topology)
+
+        coordinator.receive(.willSleep)
+        rig.current = snapshot([display("A", x: 1000, [first, laptop, second]), display("B", x: 2000, [spare])],
+                               windowOn: laptop, x: 1000)
+        coordinator.receive(.screensChanged)
+        await coordinator.waitUntilIdle()
+        XCTAssertTrue(rig.operations.isEmpty)
+        coordinator.receive(.didWake)
+        await coordinator.waitUntilIdle()
+        XCTAssertEqual(rig.operations, ["place:20", "move:20"])
+        XCTAssertTrue(RestorationPlanner.plan(profile: closedProfile, snapshot: rig.current).isComplete)
+
+        rig.current = snapshot([display("B", x: 2000, [second, spare]), display("A", x: 1000, [first, laptop]),
+                                display("builtin", x: 0, [.init(id: 101, kind: .ordinary)], builtIn: true)],
+                               windowOn: second, x: 2000)
+        coordinator.receive(.screensChanged)
+        await coordinator.waitUntilIdle()
+        XCTAssertEqual(rig.operations, ["place:20", "move:20", "place:1", "move:1"])
+        XCTAssertEqual(rig.placements.last?.targetDisplayID, "builtin")
+        XCTAssertEqual(rig.sessionCount, 2)
+        XCTAssertEqual(rig.finishCount, 2)
+        XCTAssertTrue(RestorationPlanner.plan(profile: openProfile, snapshot: rig.current).isComplete)
+        XCTAssertEqual(try store.load(open.topology()), openProfile)
+        XCTAssertEqual(try store.load(closed.topology()), closedProfile)
+    }
+
+    func testDockRestoresBothDisplaysInOneMissionControlSessionAfterStagedDetection() async throws {
+        let rig = Rig()
+        let original = Rig.originalDesktops()
+        let second = SpaceSnapshot(id: 20, kind: .ordinary, stableUUID: UUID())
+        let dock = DisplaySnapshot(id: "second", isBuiltIn: false, frame: .init(x: -1000, y: 0, width: 1000, height: 800),
+            spaces: [second])
+        let profile = try LayoutProfile.capture(snapshot: .init(displays: original.displays + [dock], windows: original.windows))
+        rig.saved = [try LayoutProfile.capture(snapshot: original), profile]
+        let migrated = Rig.originalDesktops(migrated: true)
+        let source = migrated.displays[0]
+        let laptop = DisplaySnapshot(id: source.id, isBuiltIn: true, frame: source.frame, spaces: source.spaces + [second])
+        let placeholder = DisplaySnapshot(id: dock.id, isBuiltIn: false, frame: dock.frame, spaces: [.init(id: 200, kind: .ordinary)])
+        rig.readings = [migrated, migrated]
+        rig.current = DesktopSnapshot(displays: [placeholder, laptop, migrated.displays[1]], windows: migrated.windows)
+        let coordinator = rig.coordinator(automatic: true)
+        rig.onPlace = {
+            if rig.placements.count == 1 { coordinator.receive(.screensChanged) }
+        }
+
+        coordinator.receive(.screensChanged)
+        await coordinator.waitUntilIdle()
+
+        XCTAssertEqual(rig.loads, 1)
+        XCTAssertEqual(rig.placements.map(\.spaceID), [10, 11, 12, 20])
+        XCTAssertEqual(rig.placements.last?.targetDisplayID, "second")
+        XCTAssertEqual(rig.sessionCount, 1)
+        XCTAssertEqual(rig.finishCount, 1)
+        XCTAssertTrue(rig.additions.isEmpty)
+        XCTAssertTrue(RestorationPlanner.plan(profile: profile, snapshot: rig.current).isComplete)
     }
 
     func testSavingOrFailingAnotherProfileDoesNotClearUncertainDesktopGestureBlock() async throws {
@@ -1116,7 +1219,7 @@ final class LayoutCoordinatorTests: XCTestCase {
             let coordinator = rig.coordinator(automatic: automatic)
             coordinator.saveCurrent(external: true)
             await coordinator.waitUntilIdle()
-            XCTAssertEqual(rig.registrySaveCount, 1)
+            XCTAssertEqual(rig.registrySaveCount, 2)
             let saved = rig.saved
             rig.current = Rig.originalDesktops(migrated: true)
             let unrelated = rig.current.windows.last!
@@ -1145,7 +1248,7 @@ final class LayoutCoordinatorTests: XCTestCase {
             XCTAssertEqual(rig.loads, loads + (automatic ? 0 : 1))
             XCTAssertEqual(rig.placements.count, 3)
             XCTAssertEqual(rig.saved, saved)
-            XCTAssertEqual(rig.registrySaveCount, 1, "Hotplug never rewrites the saved original identities")
+            XCTAssertEqual(rig.registrySaveCount, 2, "Hotplug never rewrites the saved original identities")
         }
     }
 
@@ -1173,7 +1276,7 @@ final class LayoutCoordinatorTests: XCTestCase {
         await coordinator.waitUntilIdle()
         XCTAssertEqual(rig.placements.map(\.spaceID), [10, 11, 12])
         XCTAssertTrue(rig.additions.isEmpty)
-        XCTAssertEqual(rig.registrySaveCount, 1)
+        XCTAssertEqual(rig.registrySaveCount, 2)
     }
 
     func testFailedReturnStopsWithoutCreatingDuplicatesOrMovingWindowsSeparately() async throws {
@@ -1630,7 +1733,7 @@ private final class Rig {
     var placeNoOp = false
     var placeFailureAt: Int?
     var onPlace: (() -> Void)?
-    var registry: ExternalDesktopRegistry?
+    private var registries: [ExternalDesktopRegistry] = []
     var registrySaveCount = 0
     var sessionCount = 0
     var finishCount = 0
@@ -1726,12 +1829,13 @@ private final class Rig {
                 await self.onFinishAsync?()
                 if self.finishFails { throw NSError(domain: "MissionControlCloseFailure", code: 1) }
             })
-        }, loadDesktopRegistry: { profile in
-            if let store = self.store { return try store.loadExternalDesktopRegistry(profile: profile) }
-            return self.registry
+        }, loadDesktopRegistry: { profile, role in
+            if let store = self.store { return try store.loadDesktopRegistry(profile: profile, role: role) }
+            return self.registries.first { $0.role == role && $0.matches(profile: profile) }
         }, saveDesktopRegistry: { registry, profile in
-            if let store = self.store { try store.saveExternalDesktopRegistry(registry, profile: profile); return }
-            self.registry = registry
+            if let store = self.store { try store.saveDesktopRegistry(registry, profile: profile); return }
+            self.registries.removeAll { $0.role == registry.role && $0.matches(profile: profile) }
+            self.registries.append(registry)
             self.registrySaveCount += 1
         }, pause: { _ in
             self.pauseCount += 1

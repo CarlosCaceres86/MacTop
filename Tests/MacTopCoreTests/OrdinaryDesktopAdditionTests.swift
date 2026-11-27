@@ -52,7 +52,7 @@ final class OrdinaryDesktopAdditionTests: XCTestCase {
             after: snapshot(external: ordinary([100, 101]), windows: [window]), displayID: "monitor"))
     }
 
-    func testInvalidInventoriesAndBuiltInCreationAreRejectedEvenWhenUnchanged() throws {
+    func testInvalidInventoriesAndUnknownTargetsAreRejectedEvenWhenUnchanged() throws {
         let valid = snapshot(external: ordinary([100]))
         for invalid in [
             snapshot(external: [.init(id: 100, kind: .fullScreen)]),
@@ -63,7 +63,7 @@ final class OrdinaryDesktopAdditionTests: XCTestCase {
         ] {
             XCTAssertThrowsError(try OrdinaryDesktopAddition.isVerified(before: invalid, after: invalid, displayID: "monitor"))
         }
-        XCTAssertThrowsError(try OrdinaryDesktopAddition.isVerified(before: valid, after: valid, displayID: "builtin"))
+        XCTAssertFalse(try OrdinaryDesktopAddition.isVerified(before: valid, after: valid, displayID: "builtin"))
         XCTAssertThrowsError(try OrdinaryDesktopAddition.isVerified(before: valid, after: valid, displayID: "unknown"))
     }
 

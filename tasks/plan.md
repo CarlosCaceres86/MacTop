@@ -47,6 +47,13 @@ The external monitor's three numbered desktops allow us to start by moving ordin
 
 ## Acceptance criteria
 
+### Multi-monitor test build
+
+- A profile follows the set of active external display UUIDs and the presence of the built-in display. Display order and the choice of main display do not change the lookup. The same combination can have a different profile with the lid closed.
+- Existing MacBook, per-monitor, and legacy files still load. Recovery evidence is local and scoped to the exact combination, saved capture, and destination display.
+- Before placing windows, find identified ordinary desktops across all active displays and verify each move in one Mission Control session. Keep existing extra desktops. For a blocked last-desktop move, add and retain an empty desktop when it can free the source. If the destination is full and no safe move can free capacity, show a recovery message.
+- On hardware, check the original one-monitor setup, two external monitors with the lid open, and one and two with the lid closed. Disconnect one display, reconnect in reverse order, then unplug and reconnect the whole dock. Close and reopen the lid while connected, including a sleep/wake cycle. Check the original desktop order, unsaved windows that travel with their desktops, final window destinations, and the absence of repeat moves on a second restore. Test three or more externals on a supported Mac before documenting hardware coverage.
+
 **Ten cycles and twenty correct layouts** on the target MacBook. At each end, the saved order, the external monitor's three apps when applicable, and the laptop windows must match. The same session windows retain their contents, including an unsaved test change. No app is closed or relaunched. Interruption and ambiguity tests are recorded separately and must leave work accessible and explain any partial result.
 
 The available Mac Studio can build and run logic tests. Physical acceptance depends on the MacBook, its monitor, and its apps. Compatibility is measured against macOS 26.6.2. A macOS change requires repeating the movement test before declaring another version compatible.

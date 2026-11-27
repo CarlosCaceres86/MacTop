@@ -19,12 +19,13 @@ Unplug your home monitor and macOS may move its desktops to your MacBook. Plug i
 | When you use… | MacTop applies… |
 | --- | --- |
 | Just your MacBook | The shared **MacBook** profile |
-| Your home monitor | The layout saved for that monitor |
-| Your office monitor | Its own layout, with its windows and desktops |
+| Your home or office monitor | The layout saved for that setup |
+| Two or more external monitors | The layout saved for that exact set of active displays |
+| External monitors with the MacBook lid closed | A separate layout for those monitors on their own |
 
 ## Installation
 
-You need a MacBook running **macOS 26.4 or later** and, if you use an external display, connect it in extended mode. In **System Settings → Desktop & Dock → Mission Control**, turn on **Displays have separate Spaces**. MacTop supports one external monitor at a time and restores numbered Mission Control desktops. Restoring full-screen and Split View Spaces is outside the scope of this beta.
+You need a MacBook running **macOS 26.4 or later**. Connect external monitors in extended mode. In **System Settings → Desktop & Dock → Mission Control**, turn on **Displays have separate Spaces**. MacTop restores numbered Mission Control desktops. The multi-monitor support in 0.1.11 is in beta and ready for testing on different MacBook and dock setups.
 
 ### Homebrew
 
@@ -43,7 +44,7 @@ brew upgrade --cask mactop-desk
 
 ### Manual download
 
-**[Download MacTop 0.1.10 Beta 1](https://github.com/CarlosCaceres86/MacTop/releases/download/v0.1.10-beta.1/MacTop-0.1.10-universal.zip)** for Apple silicon and Intel Macs. Unzip the download and move `MacTop.app` to **Applications**.
+**[Download MacTop 0.1.11 Beta 1](https://github.com/CarlosCaceres86/MacTop/releases/download/v0.1.11-beta.1/MacTop-0.1.11-universal.zip)** for Apple silicon and Intel Macs. Unzip the download and move `MacTop.app` to **Applications**.
 
 After installing, open MacTop from **Applications**. MacTop appears in the menu bar. Grant **Accessibility** permission when prompted so it can move windows and use Mission Control.
 
@@ -64,7 +65,7 @@ Open `dist/MacTop.app` or copy it to **Applications**. The local build includes 
 ## Getting started
 
 1. **Save the MacBook profile.** With no external monitor connected, arrange your windows and choose **Save Layout for MacBook…**.
-2. **Save a profile for each monitor.** Connect your home or office monitor, arrange its desktops, and choose **Save Layout for [display name]…**. If you already saved a profile, MacTop automatically associates it with its monitor.
+2. **Save a profile for each display setup.** Connect your monitors, arrange the desktops, and choose **Save Layout for [display names]…**. Save a layout with the lid open and another with it closed if you use both setups. Existing single-monitor profiles load automatically for their original setup.
 3. **Turn on Automatic Restoration.** You can first try **Restore Now**. With automatic restoration enabled, try the sequence home → MacBook → office → MacBook → home.
 
 When changes are needed, an overlay appears during restoration and disappears when it finishes. MacTop returns desktops in one Mission Control session when possible, creates missing destinations, and keeps any extra desktops. If macOS interrupts a move that MacTop cannot confirm, the menu tells you when to use **Restore Now**.

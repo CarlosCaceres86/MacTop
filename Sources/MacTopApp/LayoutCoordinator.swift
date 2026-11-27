@@ -6,7 +6,7 @@ import MacTopCore
 final class LayoutCoordinator {
     enum Event { case screensChanged, willSleep, didWake, locked, unlocked }
     enum RestorationPhase: Equatable { case recoveringDesktops, placingWindows, verifying }
-    static let missingExternalProfile = String(localized: "This monitor has no saved profile yet.")
+    static let missingExternalProfile = String(localized: "This display setup has no saved profile yet.")
     private enum Request { case inspect, save(external: Bool, expectedTopology: ProfileTopology?), restore(automatic: Bool, screenChange: Bool = false) }
 
     struct DesktopRecoverySession {
@@ -26,7 +26,7 @@ final class LayoutCoordinator {
         var load: (ProfileTopology) throws -> LayoutProfile?
         var save: (LayoutProfile) throws -> Void
         var makeDesktopRecoverySession: () -> DesktopRecoverySession = { .init() }
-        var loadDesktopRegistry: (LayoutProfile) throws -> ExternalDesktopRegistry? = { _ in nil }
+        var loadDesktopRegistry: (LayoutProfile, DisplayRole) throws -> ExternalDesktopRegistry? = { _, _ in nil }
         var saveDesktopRegistry: (ExternalDesktopRegistry, LayoutProfile) throws -> Void = { _, _ in }
         var pause: (Duration) async throws -> Void = { try await Task.sleep(for: $0) }
         var physicalDisplaysMatch: (DesktopSnapshot) -> Bool = { _ in false }
@@ -53,21 +53,34 @@ final class LayoutCoordinator {
     private(set) var detectedTopology: ProfileTopology?
     private(set) var detectedDesktopCount: Int?
     private(set) var lastRestorationResult: (summary: String, details: [String], showsInMenu: Bool, topology: ProfileTopology?)?
-    private var detectedMonitorName: String?
+    private var detectedDisplays: [DisplaySnapshot] = []
     var onChange: (() -> Void)?
 
     var detectedProfileName: String? {
         switch detectedTopology {
         case .portable: return "MacBook"
         case let .external(displayID):
-            if let name = detectedMonitorName?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty { return name }
-            return String(localized: "Monitor \(String(displayID.suffix(6)))")
+            return displayName(displayID, in: detectedDisplays)
+        case let .extended(builtIn, externalDisplayIDs):
+            let monitors = externalDisplayIDs.map { displayName($0, in: detectedDisplays) }
+            let names = zip(externalDisplayIDs, monitors).map { id, name in
+                monitors.filter { $0 == name }.count > 1 ? "\(name) (\(id.suffix(6)))" : name
+            }
+            let combined = ((builtIn ? ["MacBook"] : []) + names).joined(separator: " + ")
+            return builtIn ? combined : String(localized: "\(combined) · External only")
         case nil: return nil
         }
     }
 
+    private func displayName(_ displayID: String, in displays: [DisplaySnapshot]) -> String {
+        let display = displays.first { $0.id == displayID }
+        if display?.isBuiltIn == true { return "MacBook" }
+        if let name = display?.localizedName?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty { return name }
+        return String(localized: "Monitor \(String(displayID.suffix(6)))")
+    }
+
     var lacksExternalProfile: Bool {
-        guard let detectedTopology, detectedTopology.isExternal, profileAvailability?.topology == detectedTopology else { return false }
+        guard let detectedTopology, detectedTopology.hasExternalDisplays, profileAvailability?.topology == detectedTopology else { return false }
         return profileAvailability?.exists == false
     }
 
@@ -157,13 +170,13 @@ final class LayoutCoordinator {
                     let snapshot = try await self.stableSnapshot()
                     let topology = try snapshot.topology()
                     self.lastTopology = topology
-                    if topology.isExternal { _ = try self.loadProfile(topology) }
+                    if topology.hasExternalDisplays { _ = try self.loadProfile(topology) }
                     self.publish(self.lacksExternalProfile ? Self.missingExternalProfile : String(localized: "Ready · Save a layout for each display setup"))
                 case .save(let external, let expectedTopology):
                     let structure = try await self.stableSnapshot()
                     let snapshot = try await self.freshWindowSnapshot(matching: structure)
                     let topology = try snapshot.topology()
-                    guard topology.isExternal == external else {
+                    guard topology.hasExternalDisplays == external else {
                         throw CoordinatorError.message(external
                             ? String(localized: "Connect the external monitor before saving that profile.")
                             : String(localized: "Disconnect the external monitor before saving the MacBook profile."))
@@ -172,15 +185,16 @@ final class LayoutCoordinator {
                         throw CoordinatorError.message(String(localized: "The display setup changed. Reopen the menu before saving."))
                     }
                     let profile = try LayoutProfile.capture(snapshot: snapshot)
-                    let registry = try topology.isExternal
-                        ? ExternalDesktopRegistry(profile: profile, snapshot: snapshot, sessionID: self.desktopSessionID) : nil
+                    let registries = try topology.displayRoles.map { role in
+                        try ExternalDesktopRegistry(profile: profile, role: role, snapshot: snapshot, sessionID: self.desktopSessionID)
+                    }
                     try Task.checkCancellation()
                     try self.dependencies.save(profile)
                     self.profileAvailability = (topology, true)
-                    if let registry {
+                    for registry in registries {
                         try self.dependencies.saveDesktopRegistry(registry, profile)
-                        self.blockedDesktopProfiles[topology] = nil
                     }
+                    self.blockedDesktopProfiles[topology] = nil
                     self.lastTopology = topology
                     let captured = RestorationPlanner.plan(profile: profile, snapshot: snapshot)
                     self.pendingRestore = !captured.isComplete
@@ -248,15 +262,15 @@ final class LayoutCoordinator {
             previous = snapshot
             if repetitions >= 3 {
                 let topology = try snapshot.topology()
-                let relevantDisplay = snapshot.displays.first { display in
-                    switch topology {
-                    case .portable: return display.isBuiltIn
-                    case .external(let displayID): return display.id == displayID
-                    }
+                let relevantDisplays: [DisplaySnapshot]
+                if case let .external(displayID) = topology {
+                    relevantDisplays = snapshot.displays.filter { $0.id == displayID }
+                } else {
+                    relevantDisplays = snapshot.displays
                 }
                 detectedTopology = topology
-                detectedDesktopCount = relevantDisplay?.spaces.filter { $0.kind == .ordinary }.count
-                detectedMonitorName = relevantDisplay?.localizedName
+                detectedDesktopCount = relevantDisplays.reduce(0) { $0 + $1.spaces.filter { $0.kind == .ordinary }.count }
+                detectedDisplays = snapshot.displays
                 onChange?()
                 try Task.checkCancellation()
                 didStabilize = true
@@ -296,12 +310,12 @@ final class LayoutCoordinator {
             publish(String(localized: "Display setup unchanged"))
             return
         }
-        let reconnecting = automatic && topology.isExternal && (screenChange || lastTopology == .portable)
+        let reconnecting = automatic && (screenChange || lastTopology.map { $0 != topology } == true)
         lastTopology = topology
         guard let profile = try loadProfile(topology) else {
             pendingRestore = true
-            let summary = topology.isExternal ? Self.missingExternalProfile : String(localized: "No layout is saved for this display setup")
-            lastRestorationResult = (summary, [], !topology.isExternal, topology)
+            let summary = topology.hasExternalDisplays ? Self.missingExternalProfile : String(localized: "No layout is saved for this display setup")
+            lastRestorationResult = (summary, [], !topology.hasExternalDisplays, topology)
             publish(summary)
             return
         }
@@ -381,11 +395,11 @@ final class LayoutCoordinator {
         diagnostics += failures
         pendingRestore = !remaining.isComplete || !failures.isEmpty
         diagnostics += recovery.notes
-        let extras = try (topology.isExternal ? OrdinaryDesktopReturn.extraDesktopCount(profile: profile, snapshot: final) : 0)
+        let extras = try OrdinaryDesktopReturn.extraDesktopCount(profile: profile, snapshot: final)
         if extras > 0 {
             diagnostics.append(extras == 1
-                ? String(localized: "Kept \(extras) extra desktop on the external monitor.")
-                : String(localized: "Kept \(extras) extra desktops on the external monitor."))
+                ? String(localized: "Kept \(extras) extra desktop.")
+                : String(localized: "Kept \(extras) extra desktops."))
         }
         let outcome = pendingRestore ? String(localized: "Partial restoration") : String(localized: "Restored")
         let moves = moved == 1 ? String(localized: "\(moved) move") : String(localized: "\(moved) moves")
@@ -407,24 +421,25 @@ final class LayoutCoordinator {
     }
 
     private func recoverDesktops(profile: LayoutProfile, snapshot: DesktopSnapshot) async throws -> (snapshot: DesktopSnapshot, created: Int, returned: Int, notes: [String]) {
-        guard case let .external(displayID) = profile.topology else { return (snapshot, 0, 0, []) }
         var current = snapshot
-        var registry = try dependencies.loadDesktopRegistry(profile) ?? ExternalDesktopRegistry(profile: profile)
+        var registries = try profile.topology.displayRoles.map { role in
+            try dependencies.loadDesktopRegistry(profile, role) ?? ExternalDesktopRegistry(profile: profile, role: role)
+        }
         var created = 0
         var returned = 0
         var notes: [String] = []
         var session: DesktopRecoverySession?
         var gestureStarted = false
-        let slots = profile.displays.first { $0.role != .builtIn }?.spaces.count ?? 0
+        let slots = profile.displays.reduce(0) { $0 + $1.spaces.count }
         do {
-            // Each slot can require one creation and one placement, without retrying a failed gesture.
-            for _ in 0...(slots * 2) {
+            // Allow a return, fallback creation and reorder per slot, plus a retained auxiliary per display.
+            for _ in 0...(slots * 3 + profile.displays.count) {
                 try Task.checkCancellation()
-                let step = try OrdinaryDesktopReturn.nextStep(profile: profile, snapshot: current, registry: registry, sessionID: desktopSessionID)
+                let step = try OrdinaryDesktopReturn.nextStep(profile: profile, snapshot: current, registries: registries, sessionID: desktopSessionID)
                 let observed: DesktopSnapshot
                 switch step {
                 case .ready:
-                    notes += try OrdinaryDesktopReturn.identityIssues(profile: profile, snapshot: current, registry: registry, sessionID: desktopSessionID)
+                    notes += try OrdinaryDesktopReturn.identityIssues(profile: profile, snapshot: current, registries: registries, sessionID: desktopSessionID)
                     if let activeSession = session {
                         session = nil // A failed finish must not be attempted again by error cleanup.
                         gestureStarted = true
@@ -433,7 +448,8 @@ final class LayoutCoordinator {
                     }
                     return (current, created, returned, notes)
                 case .move(let move):
-                    publish(String(localized: "Returning desktop \(move.targetIndex + 1) to the external monitor…"))
+                    let name = displayName(move.targetDisplayID, in: current.displays)
+                    publish(String(localized: "Returning desktop \(move.targetIndex + 1) to \(name)…"))
                     let activeSession = session ?? dependencies.makeDesktopRecoverySession()
                     session = activeSession
                     try Task.checkCancellation()
@@ -445,8 +461,12 @@ final class LayoutCoordinator {
                         throw CoordinatorError.message(String(localized: "Could not verify the desktop return. MacTop stopped before creating duplicates or moving its windows separately."))
                     }
                     returned += 1
-                case .create(let slot, let reason):
-                    publish(String(localized: "Creating desktop \(slot + 1) on the external monitor…"))
+                case .create(let displayID, let slot, let reason):
+                    guard let index = registries.firstIndex(where: { current.display(for: $0.role)?.id == displayID }) else {
+                        throw CoordinatorError.message(String(localized: "The destination display could not be verified."))
+                    }
+                    let name = displayName(displayID, in: current.displays)
+                    publish(String(localized: "Creating a desktop on \(name)…"))
                     let activeSession = session ?? dependencies.makeDesktopRecoverySession()
                     session = activeSession
                     try Task.checkCancellation()
@@ -457,9 +477,11 @@ final class LayoutCoordinator {
                     guard try OrdinaryDesktopAddition.isVerified(before: current, after: observed, displayID: displayID) else {
                         throw CoordinatorError.message(String(localized: "The click did not create a desktop. MacTop will wait for a manual retry."))
                     }
-                    try registry.recordCreated(before: current, after: observed, slot: slot, sessionID: desktopSessionID)
+                    if let slot {
+                        try registries[index].recordCreated(before: current, after: observed, slot: slot, sessionID: desktopSessionID)
+                        try dependencies.saveDesktopRegistry(registries[index], profile)
+                    }
                     created += 1
-                    try dependencies.saveDesktopRegistry(registry, profile)
                     if !notes.contains(reason) { notes.append(reason) }
                 }
                 try Task.checkCancellation()
@@ -499,7 +521,7 @@ final class LayoutCoordinator {
     private func clearDetectedConfiguration() {
         detectedTopology = nil
         detectedDesktopCount = nil
-        detectedMonitorName = nil
+        detectedDisplays = []
         onChange?()
     }
 
@@ -529,10 +551,6 @@ private enum CoordinatorError: LocalizedError {
     var errorDescription: String? {
         switch self { case .message(let text), .configurationChanged(let text): return text }
     }
-}
-
-extension ProfileTopology {
-    var isExternal: Bool { if case .external = self { return true }; return false }
 }
 
 private extension WindowIdentity {

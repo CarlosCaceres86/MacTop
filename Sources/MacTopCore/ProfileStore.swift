@@ -15,6 +15,7 @@ public struct ProfileStore: Sendable {
     }
 
     public func load(_ topology: ProfileTopology) throws -> LayoutProfile? {
+        guard topology.isCanonical else { throw MacTopCoreError.invalidProfile(String(localized: "The saved display topology is invalid.")) }
         if let profile = try loadProfile(at: fileURL(for: topology), expected: topology) { return profile }
         guard case .external = topology,
               let legacy = try read(LayoutProfile.self, at: legacyProfileURL),
@@ -46,30 +47,40 @@ public struct ProfileStore: Sendable {
     }
 
     public func loadExternalDesktopRegistry(profile: LayoutProfile) throws -> ExternalDesktopRegistry? {
-        guard case let .external(displayID) = profile.topology else { return nil }
+        guard case let .external(id) = profile.topology else { return nil }
+        return try loadDesktopRegistry(profile: profile, role: .external(id: id))
+    }
+
+    public func saveExternalDesktopRegistry(_ registry: ExternalDesktopRegistry, profile: LayoutProfile) throws {
+        try saveDesktopRegistry(registry, profile: profile)
+    }
+
+    public func loadDesktopRegistry(profile: LayoutProfile, role: DisplayRole) throws -> ExternalDesktopRegistry? {
+        try profile.validate()
+        guard profile.topology.displayRoles.contains(role) else { return nil }
         let registry: ExternalDesktopRegistry
-        if let scoped = try read(ExternalDesktopRegistry.self, at: registryURL(for: displayID)) {
+        if let scoped = try read(ExternalDesktopRegistry.self, at: registryURL(for: profile.topology, role: role)) {
             registry = scoped
-        } else {
-            // The old registry belongs only to the legacy capture. Leave both original files in place.
+        } else if case let .external(id) = profile.topology, role == .external(id: id) {
+            // The original unscoped registry belongs only to the legacy capture.
             guard !FileManager.default.fileExists(atPath: fileURL(for: profile.topology).path),
                   try read(LayoutProfile.self, at: legacyProfileURL) == profile,
                   let legacy = try read(ExternalDesktopRegistry.self, at: directory.appendingPathComponent("external-desktop-identities.json"))
             else { return nil }
             registry = legacy
-        }
-        guard registry.matches(profile: profile) else { return nil }
+        } else { return nil }
+        guard registry.role == role, registry.matches(profile: profile) else { return nil }
         try registry.validate(profile: profile)
         return registry
     }
 
-    public func saveExternalDesktopRegistry(_ registry: ExternalDesktopRegistry, profile: LayoutProfile) throws {
+    public func saveDesktopRegistry(_ registry: ExternalDesktopRegistry, profile: LayoutProfile) throws {
         try registry.validate(profile: profile)
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         let data = try encoder.encode(registry)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        try data.write(to: registryURL(for: registry.displayID), options: .atomic)
+        try data.write(to: registryURL(for: profile.topology, role: registry.role), options: .atomic)
     }
 
     private func read<Value: Decodable>(_ type: Value.Type, at url: URL) throws -> Value? {
@@ -87,12 +98,32 @@ public struct ProfileStore: Sendable {
         switch topology {
         case .portable: name = "macbook.json"
         case let .external(displayID): name = "macbook-external-\(monitorFileKey(displayID)).json"
+        case .extended: name = "displays-\(topologyFileKey(topology)).json"
         }
         return directory.appendingPathComponent(name)
     }
 
-    private func registryURL(for displayID: String) -> URL {
-        directory.appendingPathComponent("external-desktop-identities-\(monitorFileKey(displayID)).json")
+    private func registryURL(for topology: ProfileTopology, role: DisplayRole) -> URL {
+        if case let .external(id) = topology, role == .external(id: id) {
+            return directory.appendingPathComponent("external-desktop-identities-\(monitorFileKey(id)).json")
+        }
+        let roleKey: String
+        switch role {
+        case .builtIn: roleKey = "built-in"
+        case let .external(id): roleKey = monitorFileKey(id)
+        }
+        return directory.appendingPathComponent("desktop-identities-\(topologyFileKey(topology))-\(roleKey).json")
+    }
+
+    private func topologyFileKey(_ topology: ProfileTopology) -> String {
+        let key: String
+        switch topology {
+        case .portable: key = "portable"
+        case let .external(id): key = "external:\(id.utf8.count):\(id)"
+        case let .extended(builtIn, ids):
+            key = "extended:\(builtIn):" + ids.map { "\($0.utf8.count):\($0)" }.joined()
+        }
+        return monitorFileKey(key)
     }
 
     private func monitorFileKey(_ displayID: String) -> String {

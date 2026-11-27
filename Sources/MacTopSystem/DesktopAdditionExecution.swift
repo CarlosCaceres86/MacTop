@@ -32,7 +32,7 @@ enum DesktopAdditionExecution {
         if attempt + 1 < attempts { await pause() }
       }
       throw pressFailure ?? SystemFailure.partial(
-        String(localized: "“+” was clicked, but a single new desktop on the external monitor could not be verified. The click will not be repeated."))
+        String(localized: "“+” was clicked, but a single new desktop on the target display could not be verified. The click will not be repeated."))
     } catch {
       if opened { try? await close() }
       throw error

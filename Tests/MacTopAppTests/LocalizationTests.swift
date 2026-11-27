@@ -12,6 +12,9 @@ final class LocalizationTests: XCTestCase {
         let window = 2
         let total = 4
         XCTAssertEqual(String(localized: "Save Layout for \(display)…", bundle: spanish), "Guardar distribución para Studio Display…")
+        XCTAssertEqual(String(localized: "\(display) · External only", bundle: spanish), "Studio Display · Solo pantallas externas")
+        XCTAssertEqual(String(localized: "\(total) displays", bundle: spanish), "4 pantallas")
+        XCTAssertEqual(String(localized: "Returning desktop \(window) to \(display)…", bundle: spanish), "Devolviendo el escritorio 2 a Studio Display…")
         XCTAssertEqual(String(localized: "Recovering desktops", bundle: spanish), "Recuperando escritorios")
         XCTAssertEqual(String(localized: "Placing windows", bundle: spanish), "Colocando ventanas")
         XCTAssertEqual(String(localized: "Verifying layout", bundle: spanish), "Comprobando la distribución")

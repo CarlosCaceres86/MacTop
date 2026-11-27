@@ -36,14 +36,14 @@ final class OrdinaryDesktopReturnTests: XCTestCase {
         let profile = try LayoutProfile.capture(snapshot: snapshot([space(10),space(11),space(12)], [space(1)]))
         var registry = try ExternalDesktopRegistry(profile: profile)
         let before = snapshot([space(100)], [space(1),space(10),space(11),space(12)])
-        guard case .create(slot: 1, reason: _) = try OrdinaryDesktopReturn.nextStep(profile: profile, snapshot: before, registry: registry, sessionID: session) else { return XCTFail("only deficit") }
+        guard case .create(displayID: "monitor", slot: 1, reason: _) = try OrdinaryDesktopReturn.nextStep(profile: profile, snapshot: before, registry: registry, sessionID: session) else { return XCTFail("only deficit") }
         let after = snapshot([space(100),space(101)], before.displays[0].spaces)
         try registry.recordCreated(before: before, after: after, slot: 1, sessionID: session)
         XCTAssertNil(registry.slots[0].stableUUID)
         XCTAssertThrowsError(try registry.recordCreated(before: after,
             after: snapshot([space(100),space(101),space(102)], before.displays[0].spaces), slot: 1, sessionID: session))
         XCTAssertEqual(registry.slots[1].sessionSpaceID, 101)
-        guard case .create(slot: 2, reason: _) = try OrdinaryDesktopReturn.nextStep(profile: profile, snapshot: after, registry: registry, sessionID: session) else { return XCTFail("next deficit") }
+        guard case .create(displayID: "monitor", slot: 2, reason: _) = try OrdinaryDesktopReturn.nextStep(profile: profile, snapshot: after, registry: registry, sessionID: session) else { return XCTFail("next deficit") }
         let moved = snapshot([space(100)], [space(1),space(101)])
         guard case let .move(step) = try OrdinaryDesktopReturn.nextStep(profile: profile, snapshot: moved, registry: registry, sessionID: session) else { return XCTFail("created identity retained") }
         XCTAssertEqual(step.spaceID, 101)
@@ -105,7 +105,7 @@ final class OrdinaryDesktopReturnTests: XCTestCase {
 
         let reusedIdentity = snapshot([space(100)], [space(1),space(11,b)])
         switch try OrdinaryDesktopReturn.nextStep(profile: profile, snapshot: reusedIdentity, registry: registry, sessionID: session) {
-        case .create(slot: 1, reason: _): break
+        case .create(displayID: "monitor", slot: 1, reason: _): break
         default: XCTFail("a newly present UUID cannot match an ID observed without UUID")
         }
         let created = snapshot([space(100),space(200,c)], reusedIdentity.displays[0].spaces)
@@ -127,7 +127,7 @@ final class OrdinaryDesktopReturnTests: XCTestCase {
         XCTAssertEqual(step.targetIndex, 1)
         let returned = snapshot([space(100),space(12,c)], [space(1)])
         XCTAssertTrue(try OrdinaryDesktopReturn.isVerified(before: before, after: returned, step: step))
-        guard case .create(slot: 1, reason: _) = try OrdinaryDesktopReturn.nextStep(profile: profile, snapshot: returned, registry: registry, sessionID: session) else { return XCTFail() }
+        guard case .create(displayID: "monitor", slot: 1, reason: _) = try OrdinaryDesktopReturn.nextStep(profile: profile, snapshot: returned, registry: registry, sessionID: session) else { return XCTFail() }
         let created = snapshot([space(100),space(12,c),space(200)], [space(1)])
         try registry.recordCreated(before: returned, after: created, slot: 1, sessionID: session)
         guard case let .move(order) = try OrdinaryDesktopReturn.nextStep(profile: profile, snapshot: created, registry: registry, sessionID: session) else { return XCTFail() }

@@ -97,6 +97,30 @@ public struct WindowSnapshot: Codable, Equatable, Sendable {
 public enum ProfileTopology: Codable, Hashable, Sendable {
     case portable
     case external(displayID: String)
+    case extended(builtIn: Bool, externalDisplayIDs: [String])
+
+    public var displayRoles: [DisplayRole] {
+        switch self {
+        case .portable: return [.builtIn]
+        case let .external(id): return [.builtIn, .external(id: id)]
+        case let .extended(builtIn, ids):
+            return (builtIn ? [.builtIn] : []) + ids.map { .external(id: $0) }
+        }
+    }
+
+    public var hasExternalDisplays: Bool {
+        displayRoles.contains { if case .external = $0 { return true }; return false }
+    }
+
+    var isCanonical: Bool {
+        switch self {
+        case .portable: return true
+        case let .external(id): return !id.isEmpty
+        case let .extended(builtIn, ids):
+            return ids.count >= (builtIn ? 2 : 1) && ids.allSatisfy { !$0.isEmpty } &&
+                ids == ids.sorted() && Set(ids.map { $0.lowercased() }).count == ids.count
+        }
+    }
 }
 
 public enum DisplayRole: Codable, Equatable, Sendable {
@@ -133,12 +157,15 @@ public struct DesktopSnapshot: Codable, Equatable, Sendable {
     public func topology() throws -> ProfileTopology {
         let builtIn = displays.filter(\.isBuiltIn)
         let external = displays.filter { !$0.isBuiltIn }
-        guard builtIn.count == 1, external.count <= 1,
+        guard !displays.isEmpty, builtIn.count <= 1,
               !displays.contains(where: { $0.id.isEmpty }),
-              Set(displays.map(\.id)).count == displays.count else {
+              Set(displays.map { $0.id.lowercased() }).count == displays.count else {
             throw MacTopCoreError.unsupportedTopology
         }
-        return external.first.map { .external(displayID: $0.id) } ?? .portable
+        let ids = external.map(\.id).sorted()
+        if builtIn.count == 1 && ids.isEmpty { return .portable }
+        if builtIn.count == 1 && ids.count == 1 { return .external(displayID: ids[0]) }
+        return .extended(builtIn: !builtIn.isEmpty, externalDisplayIDs: ids)
     }
 
     func validate() throws {
@@ -157,7 +184,7 @@ public struct DesktopSnapshot: Codable, Equatable, Sendable {
         }
     }
 
-    func display(for role: DisplayRole) -> DisplaySnapshot? {
+    package func display(for role: DisplayRole) -> DisplaySnapshot? {
         switch role {
         case .builtIn: return displays.first(where: \.isBuiltIn)
         case let .external(id): return displays.first { !$0.isBuiltIn && $0.id == id }
@@ -174,7 +201,7 @@ public enum MacTopCoreError: Error, LocalizedError {
 
     public var errorDescription: String? {
         switch self {
-        case .unsupportedTopology: return String(localized: "The built-in display and, optionally, one identified external monitor are required.")
+        case .unsupportedTopology: return String(localized: "The active displays must have unique identities and at most one built-in display.")
         case .missingPermission: return String(localized: "Accessibility permission is missing.")
         case let .invalidSnapshot(message), let .invalidProfile(message): return message
         case let .externalMonitorConflict(id): return String(localized: "The external profile belongs to another monitor (\(id)); it was not replaced.")

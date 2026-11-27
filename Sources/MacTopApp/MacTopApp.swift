@@ -61,8 +61,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     finish: { try await session.finish() }
                 )
             },
-            loadDesktopRegistry: { try store.loadExternalDesktopRegistry(profile: $0) },
-            saveDesktopRegistry: { try store.saveExternalDesktopRegistry($0, profile: $1) },
+            loadDesktopRegistry: { try store.loadDesktopRegistry(profile: $0, role: $1) },
+            saveDesktopRegistry: { try store.saveDesktopRegistry($0, profile: $1) },
             physicalDisplaysMatch: system.physicalDisplaysMatch
         ), automaticEnabled: UserDefaults.standard.bool(forKey: automaticKey))
         coordinator.onChange = { [weak self] in
@@ -229,7 +229,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             let state = coordinator.lacksExternalProfile ? String(localized: "No saved profile") : String(localized: "2 displays")
             return String(localized: "\(state) · \(desktops) · ID \(String(displayID.suffix(6)))")
         }
-        return String(localized: "1 display · \(desktops)")
+        let displayCount = topology.displayRoles.count
+        let displays = displayCount == 1 ? String(localized: "1 display") : String(localized: "\(displayCount) displays")
+        let state = coordinator.lacksExternalProfile ? [String(localized: "No saved profile")] : []
+        return ([displays, desktops] + state).joined(separator: " · ")
     }
 
     @objc private func saveDistribution(_ sender: NSMenuItem) {
@@ -237,7 +240,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
               let profileName = coordinator.detectedProfileName,
               !coordinator.isBusy, coordinator.detectedTopology == topology else { return }
         let message = coordinator.lacksExternalProfile
-            ? String(localized: "This saves the current layout as a new profile for this monitor.")
+            ? String(localized: "This saves the current layout as a new profile for this display setup.")
             : String(localized: "This saves the current layout and replaces any existing profile for this display setup.")
         let confirmation = makeAlert(title: String(localized: "Save for \(profileName)"), message: message)
         confirmation.addButton(withTitle: String(localized: "Save Layout"))
@@ -249,7 +252,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                   message: String(localized: "Reopen the menu and check the detected profile before saving."))
             return
         }
-        coordinator.saveCurrent(external: topology.isExternal, expectedTopology: topology)
+        coordinator.saveCurrent(external: topology.hasExternalDisplays, expectedTopology: topology)
     }
     @objc private func restore() {
         guard !coordinator.isBusy else { return }
@@ -283,7 +286,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         alert(title: String(localized: "MacTop \(version) · Local beta"), message: String(localized: """
             Restore your open windows to their saved desktops.
 
-            Save a MacBook profile and one profile for each external monitor you use. Try Restore Now before enabling automatic restoration.
+            Save a profile for each display setup you use. Opening or closing the lid can change the detected setup. Try Restore Now before enabling automatic restoration.
 
             Only saving a layout replaces a profile. Your apps and documents stay open. Profiles are stored locally.
 
