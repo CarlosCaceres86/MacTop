@@ -16,6 +16,13 @@
 
 Unplug your home monitor and macOS may move its desktops to your MacBook. Plug it back in and the monitor may show a single desktop. **MacTop remembers how you work on each display.** It returns the original desktops it can identify, restores their order, and repositions open windows without closing or relaunching your apps.
 
+<p align="center">
+  <img src="resources/readme/profile-menu.png" alt="MacTop menu showing a saved profile for a MacBook, a Studio Display, and an LG UltraFine" width="400">
+  <img src="resources/readme/restoring-desktops.png" alt="MacTop overlay showing Recovering desktops for the same display setup" width="400">
+</p>
+
+<p align="center"><em>MacTop’s menu and restoration overlay with an example display setup.</em></p>
+
 | When you use… | MacTop applies… |
 | --- | --- |
 | Just your MacBook | The shared **MacBook** profile |
